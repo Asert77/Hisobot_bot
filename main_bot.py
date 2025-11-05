@@ -264,10 +264,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
     elif data.startswith("delete_service_"):
         service_id = int(data.split("_")[-1])
-
-
         delete_service_by_id(service_id)
-
         await query.edit_message_text("🗑 Xizmat o‘chirildi. ✅", reply_markup=back_button)
 
 
@@ -492,14 +489,18 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # ✅ Doktor ID ni saqlab qo‘yish
+    # ❌ Eski service-related ma'lumotlarni tozalash
+    context.user_data.pop("selected_service_name", None)
+    context.user_data.pop("selected_service_id", None)
+    context.user_data.pop("selected_service_price", None)
+
     doctor_id = context.user_data.get("doctor_id")
     if not doctor_id:
         await query.edit_message_text("❌ Doktor aniqlanmadi.")
         return ConversationHandler.END
 
     await query.edit_message_text("💳 To‘lov summasini kiriting:")
-    context.user_data["doctor_id"] = doctor_id  # 👈 SHU QATORNI QO‘SHING
+    context.user_data["doctor_id"] = doctor_id
     return ENTER_PAYMENT_AMOUNT
 
 
