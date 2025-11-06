@@ -135,9 +135,9 @@ def add_service(doctor_id, name, price, created_at=None):
         """, (doctor_id, name, price, created_at))
     else:
         cur.execute("""
-            INSERT INTO services (doctor_id, name, price)
-            VALUES (%s, %s, %s)
-        """, (doctor_id, name, price))
+            INSERT INTO services (name, price)
+            VALUES %s, %s)
+        """, (name, price))
     conn.commit()
     conn.close()
 
