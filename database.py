@@ -192,7 +192,6 @@ def get_all_services():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, name, price FROM services
-                WHERE is_hidden = FALSE
                 ORDER BY id
             """)
             return cur.fetchall()
