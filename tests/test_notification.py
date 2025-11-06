@@ -143,7 +143,8 @@ def test_delete_notification(mock_get_connection):
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from main_bot import send_scheduled_notifications
+from main_bot import send_scheduled_notifications, TOKEN
+
 
 @pytest.mark.asyncio
 @patch("main_bot.get_pending_notifications")
@@ -170,3 +171,33 @@ async def test_send_scheduled_notifications(mock_mark_sent, mock_get_telegram, m
         reply_markup=ANY
     )
     mock_mark_sent.assert_called_once_with(1)
+
+from unittest.mock import patch, MagicMock
+from database import mark_notification_sent
+
+@patch("database.psycopg2.connect")
+def test_mark_notification_sent(mock_connect):
+    # Yasalma obyektlar
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+
+    # Context managerni sozlash
+    mock_connect.return_value.__enter__.return_value = mock_conn
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+    # Funksiya chaqiruvi
+    mark_notification_sent(99)
+
+    # SQL query va argumentlar tekshiruvi
+    mock_cursor.execute.assert_called_once_with(
+        """
+                UPDATE doctor_service_notifications
+                SET sent = TRUE, sent_at = NOW()
+                WHERE id = %s
+            """,
+        (99,)
+    )
+
+    # commit ham chaqirilganligini tekshirish
+    mock_conn.commit.assert_called_once()
+

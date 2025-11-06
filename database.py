@@ -473,8 +473,11 @@ def mark_notification_sent(notification_id: int):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                UPDATE doctor_service_notifications SET sent = TRUE WHERE id = %s
+                UPDATE doctor_service_notifications
+                SET sent = TRUE, sent_at = NOW()
+                WHERE id = %s
             """, (notification_id,))
+        conn.commit()
 
 
 def get_reminder_notifications():

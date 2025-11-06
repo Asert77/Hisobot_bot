@@ -1,32 +1,36 @@
-import os
 import asyncio
+import os
+from datetime import time
+
 import nest_asyncio
+import pytz
 from dotenv import load_dotenv
-from service.doctor_view import (
-    show_services_for_payment,  # xizmatlarni ko‘rsatish
-    select_service,  # xizmat tanlandi
-    ask_service_quantity, add_service_to_doctor  # sonini kiritish
-)
-from service.report_view import  process_date_range, start_report, ASK_REPORT_RANGE, process_report_range
-from service.doctor_view import SELECT_SERVICE_QUANTITY
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ConversationHandler, ContextTypes, filters
 )
-from pdf_report import generate_pdf_report
-from service.doctor_view import open_doctor_menu
+
 from database import (
     create_tables, add_doctor, get_all_doctors, add_service,
     add_payment, get_payments_by_doctor, get_services_by_doctor,
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
     schedule_notification, get_doctor_telegram_id,
     get_pending_notifications, mark_notification_sent,
-    get_reminder_notifications, handle_notification_response, delete_service_by_id, get_monthly_debts,
-    delete_doctor_services_by_month,
-    delete_doctor_payments_by_month, close_debts, confirm_close_debt
+    get_reminder_notifications, delete_service_by_id, get_monthly_debts,
+    close_debts
 )
-from datetime import datetime, timedelta, time
+from pdf_report import generate_pdf_report
+from service.doctor_view import SELECT_SERVICE_QUANTITY
+from service.doctor_view import open_doctor_menu
+from service.doctor_view import (
+    show_services_for_payment,  # xizmatlarni ko‘rsatish
+    select_service,  # xizmat tanlandi
+    ask_service_quantity, add_service_to_doctor  # sonini kiritish
+)
+from service.report_view import start_report, ASK_REPORT_RANGE, process_report_range
+
+tz = pytz.timezone("Asia/Tashkent")
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -611,8 +615,16 @@ async def main():
     # Step 3: Rejalashtirilgan xabarlarni qo‘shish
     from datetime import timedelta
 
-    app.job_queue.run_repeating(send_scheduled_notifications, interval=timedelta(minutes=3))
-    app.job_queue.run_repeating(resend_reminder_notifications, interval=timedelta(minutes=10))
+    app.job_queue.run_daily(
+        send_scheduled_notifications,
+        time=time(hour=9, minute=0, tzinfo=tz)
+    )
+
+    # 14:00 - eslatma xabari
+    app.job_queue.run_daily(
+        resend_reminder_notifications,
+        time=time(hour=14, minute=0, tzinfo=tz)
+    )
 
     service_quantity_conv = ConversationHandler(
         entry_points=[
