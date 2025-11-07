@@ -18,7 +18,7 @@ from database import (
     schedule_notification, get_doctor_telegram_id,
     get_pending_notifications, mark_notification_sent,
     get_reminder_notifications, delete_service_by_id, get_monthly_debts,
-    close_debts
+    close_debts, doctor_exists_by_telegram, add_doctor_auto, get_doctor_by_telegram
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY
@@ -51,56 +51,52 @@ back_button = InlineKeyboardMarkup([
     [InlineKeyboardButton("🔙 Menyuga qaytish", callback_data="back_to_menu")]
 ])
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message:
-        user = update.message.from_user
-        telegram_id = user.id
-        username = user.username or "yo‘q"
 
-        if telegram_id in ADMINS:
-            keyboard = [
-                [InlineKeyboardButton("📋 Doktorlar ro'yxati", callback_data="list_doctors")],
-                [InlineKeyboardButton("➕ Doktor qo‘shish", callback_data="add_doctor")],
-                [InlineKeyboardButton("📊 Hisobot", callback_data="report_main")],
-                [InlineKeyboardButton("🛠 Xizmat turi", callback_data="services")],
-                [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="settings")],
-            ]
-            markup = InlineKeyboardMarkup(keyboard)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Har qanday ConversationHandler'ni yakunlash
+    context.user_data.clear()
+
+    user = update.message.from_user if update.message else update.callback_query.from_user
+    telegram_id = user.id
+    username = user.username or "yo‘q"
+
+    if telegram_id in ADMINS:
+        keyboard = [
+            [InlineKeyboardButton("📋 Doktorlar ro'yxati", callback_data="list_doctors")],
+            [InlineKeyboardButton("➕ Doktor qo‘shish", callback_data="add_doctor")],
+            [InlineKeyboardButton("📊 Hisobot", callback_data="report_main")],
+            [InlineKeyboardButton("🛠 Xizmat turi", callback_data="services")],
+            [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="settings")],
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
+
+        if update.message:
             await update.message.reply_text("🏠 Boshqaruv menyusi:", reply_markup=markup)
         else:
-            await update.message.reply_text(
-                f"👋 Salom, {user.full_name}!\n"
-                f"📱 Telegram ID: {telegram_id}\n"
-                f"🧾 Username: @{username}\n\n"
-                f"⚠️ ID'ni administratorga yuboring."
-            )
-            await update.message.reply_text(
-                "📩 Sizga biriktirilgan xizmatlar bo‘yicha bildirishnomalar shu yerga keladi.\n"
-                "❓ Agar xabar kelsa va buyurtmani olgan bo'lsangiz 'Ha' ni bosing. Agar olmagan bo'lsangiz 14:00 da qayta xabar yuboriladi."
-            )
-
-    elif update.callback_query:
-        user = update.callback_query.from_user
-        telegram_id = user.id
-        username = user.username or "yo‘q"
-
-        if telegram_id in ADMINS:
-            keyboard = [
-                [InlineKeyboardButton("📋 Doktorlar ro'yxati", callback_data="list_doctors")],
-                [InlineKeyboardButton("➕ Doktor qo‘shish", callback_data="add_doctor")],
-                [InlineKeyboardButton("📊 Hisobot", callback_data="report")],
-                [InlineKeyboardButton("🛠 Xizmat turi", callback_data="services")],
-                [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="settings")],
-            ]
-            markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.message.edit_text("🏠 Boshqaruv menyusi:", reply_markup=markup)
+
+    else:
+        # ❗️Avtomatik doktor qo‘shish (faqat agar mavjud bo‘lmasa)
+        if not doctor_exists_by_telegram(telegram_id):
+            add_doctor_auto(telegram_id, user.full_name, username)
+
+        text = (
+            f"👋 Salom, {user.full_name}!\n"
+            f"📱 Telegram ID: {telegram_id}\n"
+            f"🧾 Username: @{username or 'yo‘q'}\n\n"
+            "✅ Siz muvaffaqiyatli tizimga qo‘shildingiz."
+        )
+        keyboard = [
+            [InlineKeyboardButton("👤 Profilim", callback_data="my_profile")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
+
+        if update.message:
+            await update.message.reply_text(text, reply_markup=markup)
         else:
-            await update.callback_query.message.edit_text(
-                f"👋 Salom, {user.full_name}!\n"
-                f"📱 Telegram ID: {telegram_id}\n"
-                f"🧾 Username: @{username}\n\n"
-                f"⚠️ ID'ni administratorga yuboring."
-            )
+            await update.callback_query.message.edit_text(text, reply_markup=markup)
+
+    return ConversationHandler.END  # 🔚 Har qanday holatdan chiqish
 
 
 # Asosiy handler
@@ -132,6 +128,40 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             await query.message.reply_text("📋 Doktorlar ro‘yxati:", reply_markup=InlineKeyboardMarkup(keyboard))
 
+    elif data == "my_profile":
+        telegram_id = query.from_user.id
+        doctor = get_doctor_by_telegram(telegram_id)
+
+        if not doctor:
+            await query.edit_message_text("❌ Siz ro‘yxatdan o‘tmagansiz.")
+            return
+
+        doctor_id = doctor["id"]
+        name = doctor["name"]
+
+        # 🔹 Xizmatlar
+        services = get_services_by_doctor(doctor_id)
+        service_lines = [f"• {service}" for _, service in services] if services else ["(Xizmatlar yo‘q)"]
+
+        # 💰 To‘lovlar
+        payments = get_payments_by_doctor(doctor_id)
+        total_paid = sum(float(p[0]) for p in payments)
+        payment_lines = [f"• {p[0]} so‘m — {p[1].strftime('%Y-%m-%d')}" for p in payments] if payments else [
+            "(To‘lovlar yo‘q)"]
+
+        # 💸 Qarzdorlik
+        total_expected = get_expected_total_by_doctor(doctor_id)
+        debt = total_expected - total_paid
+
+        text = (
+                f"👤 <b>{name}</b> profili\n\n"
+                f"📦 <b>Xizmatlar:</b>\n" + "\n".join(service_lines) + "\n\n"
+                                                                      f"💰 <b>To‘lovlar:</b>\n" + "\n".join(
+            payment_lines) + "\n\n"
+                             f"💸 <b>Qarzdorlik:</b> {debt:.0f} so‘m"
+        )
+
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=back_button)
 
     # ➕ Doktor qo‘shish
     elif data == "add_doctor":

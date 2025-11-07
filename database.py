@@ -109,6 +109,20 @@ def add_doctor(name: str, phone: str, telegram_id: int):
                 (name, phone, telegram_id)
             )
 
+def doctor_exists_by_telegram(telegram_id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM doctors WHERE telegram_id = %s", (telegram_id,))
+            return cur.fetchone() is not None
+
+def add_doctor_auto(telegram_id, full_name, username):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO doctors (name, telegram_id, username)
+                VALUES (%s, %s, %s)
+            """, (full_name, telegram_id, username))
+            conn.commit()
 
 # 🧾 Barcha doktorlar
 def get_all_doctors():
@@ -606,3 +620,12 @@ def delete_doctor_payments_by_month(doctor_id, month_start):
                 WHERE doctor_id = %s
                 AND created_at >= %s AND created_at < %s
             """, (doctor_id, month_start, next_month))
+
+def get_doctor_by_telegram(telegram_id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM doctors WHERE telegram_id = %s", (telegram_id,))
+            row = cur.fetchone()
+            if row:
+                return {"id": row[0], "name": row[1]}
+            return None
