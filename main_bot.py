@@ -94,7 +94,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(text, reply_markup=markup)
         elif update.callback_query:
             await update.callback_query.message.edit_text(text, reply_markup=markup)
-
+        return ConversationHandler.END
 
 # Asosiy handler
 async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
