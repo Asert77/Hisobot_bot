@@ -690,6 +690,13 @@ async def main():
         fallbacks=[],
     )
 
+
+    conv_start = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={},  # start tugagach hech qanday state yo‘q — lekin agar kerak bo‘lsa, qo‘shasiz
+        fallbacks=[],
+    )
+
     conv_report = ConversationHandler(
         entry_points=[CallbackQueryHandler(start_report, pattern="^report_main$")],
         states={
@@ -702,6 +709,7 @@ async def main():
 
     # Step 4: Bot handlerlarini qo‘shish
     app.add_handler(conv_payment)
+    app.add_handler(conv_start)
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
     app.add_handler(conv_report)
     app.add_handler(CallbackQueryHandler(handle_service_confirmation, pattern="^(confirm_received_|reject_received_)"))
