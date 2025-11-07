@@ -73,6 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.edit_text("🏠 Boshqaruv menyusi:", reply_markup=markup)
 
     else:
+        add_doctor_auto(telegram_id, user.full_name, username)
         # Oddiy foydalanuvchi uchun menyu
         keyboard = [
             [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")]

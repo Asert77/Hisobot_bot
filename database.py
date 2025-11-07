@@ -100,11 +100,6 @@ def create_tables():
     cur.close()
     conn.close()
 
-def check_if_doctor(telegram_id: int) -> bool:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM doctors WHERE telegram_id = %s", (telegram_id,))
-            return cur.fetchone() is not None
 
 async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.callback_query.from_user
@@ -163,13 +158,18 @@ def doctor_exists_by_telegram(telegram_id):
 def add_doctor_auto(telegram_id, full_name, username):
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # Avval tekshiramiz: doktor mavjudmi
+            cur.execute("SELECT id FROM doctors WHERE telegram_id = %s", (telegram_id,))
+            if cur.fetchone():
+                return  # allaqachon mavjud, hech narsa qilmaymiz
+
+            # Agar mavjud bo‘lmasa, qo‘shamiz
             cur.execute("""
                 INSERT INTO doctors (name, telegram_id, username)
                 VALUES (%s, %s, %s)
             """, (full_name, telegram_id, username))
             conn.commit()
 
-# 🧾 Barcha doktorlar
 def get_all_doctors():
     with get_connection() as conn:
         with conn.cursor() as cur:
