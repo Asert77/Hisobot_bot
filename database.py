@@ -100,6 +100,51 @@ def create_tables():
     cur.close()
     conn.close()
 
+def check_if_doctor(telegram_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM doctors WHERE telegram_id = %s", (telegram_id,))
+            return cur.fetchone() is not None
+
+async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.callback_query.from_user
+    telegram_id = user.id
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Doktorga biriktirilgan xizmatlar
+            cur.execute("""
+                SELECT s.name, s.price
+                FROM doctor_services ds
+                JOIN services s ON ds.service_id = s.id
+                JOIN doctors d ON ds.doctor_id = d.id
+                WHERE d.telegram_id = %s
+            """, (telegram_id,))
+            services = cur.fetchall()
+
+            cur.execute("""
+                SELECT amount, created_at
+                FROM payments p
+                JOIN doctors d ON p.doctor_id = d.id
+                WHERE d.telegram_id = %s
+                ORDER BY created_at DESC
+                LIMIT 5
+            """, (telegram_id,))
+            payments = cur.fetchall()
+    text = f"👤 <b>Profilingiz</b>\n\n"
+    if services:
+        text += "🛠 <b>Xizmatlaringiz</b>:\n"
+        for s in services:
+            text += f"• {s[0]} — {s[1]} so‘m\n"
+    else:
+        text += "🛠 Sizga biriktirilgan xizmat yo‘q.\n"
+    text += "\n💰 <b>So‘nggi to‘lovlar</b>:\n"
+    if payments:
+        for p in payments:
+            text += f"• {p[1].strftime('%Y-%m-%d')}: {p[0]} so‘m\n"
+    else:
+        text += "💸 To‘lov topilmadi.\n"
+    await update.callback_query.message.edit_text(text, parse_mode="HTML")
+
 # ➕ Doktor qo‘shish
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:

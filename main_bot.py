@@ -18,7 +18,7 @@ from database import (
     schedule_notification, get_doctor_telegram_id,
     get_pending_notifications, mark_notification_sent,
     get_reminder_notifications, delete_service_by_id, get_monthly_debts,
-    close_debts, doctor_exists_by_telegram, add_doctor_auto, get_doctor_by_telegram
+    close_debts, doctor_exists_by_telegram, add_doctor_auto, get_doctor_by_telegram, my_profile
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY
@@ -53,10 +53,8 @@ back_button = InlineKeyboardMarkup([
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Har qanday ConversationHandler'ni yakunlash
-    context.user_data.clear()
-
-    user = update.message.from_user if update.message else update.callback_query.from_user
+    context.user_data.clear()  # avvalgi holatlarni tozalash
+    user = update.effective_user
     telegram_id = user.id
     username = user.username or "yo‘q"
 
@@ -69,34 +67,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="settings")],
         ]
         markup = InlineKeyboardMarkup(keyboard)
-
         if update.message:
             await update.message.reply_text("🏠 Boshqaruv menyusi:", reply_markup=markup)
-        else:
+        elif update.callback_query:
             await update.callback_query.message.edit_text("🏠 Boshqaruv menyusi:", reply_markup=markup)
 
     else:
-        # ❗️Avtomatik doktor qo‘shish (faqat agar mavjud bo‘lmasa)
-        if not doctor_exists_by_telegram(telegram_id):
-            add_doctor_auto(telegram_id, user.full_name, username)
+        # Oddiy foydalanuvchi uchun menyu
+        keyboard = [
+            [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
 
         text = (
             f"👋 Salom, {user.full_name}!\n"
             f"📱 Telegram ID: {telegram_id}\n"
-            f"🧾 Username: @{username or 'yo‘q'}\n\n"
-            "✅ Siz muvaffaqiyatli tizimga qo‘shildingiz."
+            f"🧾 Username: @{username}\n\n"
+            f"Siz ro'yhatdan o'tdingiz!"
+            f"📩 Sizga biriktirilgan xizmatlar bo‘yicha bildirishnomalar shu yerga keladi.\n"
+            f"❓ Agar xabar kelsa va buyurtmani olgan bo'lsangiz 'Ha' ni bosing. "
+            f"Agar olmagan bo'lsangiz 14:00 da qayta xabar yuboriladi."
         )
-        keyboard = [
-            [InlineKeyboardButton("👤 Profilim", callback_data="my_profile")]
-        ]
-        markup = InlineKeyboardMarkup(keyboard)
 
         if update.message:
             await update.message.reply_text(text, reply_markup=markup)
-        else:
+        elif update.callback_query:
             await update.callback_query.message.edit_text(text, reply_markup=markup)
-
-    return ConversationHandler.END  # 🔚 Har qanday holatdan chiqish
 
 
 # Asosiy handler
@@ -128,42 +124,6 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             await query.message.reply_text("📋 Doktorlar ro‘yxati:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-    elif data == "my_profile":
-        telegram_id = query.from_user.id
-        doctor = get_doctor_by_telegram(telegram_id)
-
-        if not doctor:
-            await query.edit_message_text("❌ Siz ro‘yxatdan o‘tmagansiz.")
-            return
-
-        doctor_id = doctor["id"]
-        name = doctor["name"]
-
-        # 🔹 Xizmatlar
-        services = get_services_by_doctor(doctor_id)
-        service_lines = [f"• {service}" for _, service in services] if services else ["(Xizmatlar yo‘q)"]
-
-        # 💰 To‘lovlar
-        payments = get_payments_by_doctor(doctor_id)
-        total_paid = sum(float(p[0]) for p in payments)
-        payment_lines = [f"• {p[0]} so‘m — {p[1].strftime('%Y-%m-%d')}" for p in payments] if payments else [
-            "(To‘lovlar yo‘q)"]
-
-        # 💸 Qarzdorlik
-        total_expected = get_expected_total_by_doctor(doctor_id)
-        debt = total_expected - total_paid
-
-        text = (
-                f"👤 <b>{name}</b> profili\n\n"
-                f"📦 <b>Xizmatlar:</b>\n" + "\n".join(service_lines) + "\n\n"
-                                                                      f"💰 <b>To‘lovlar:</b>\n" + "\n".join(
-            payment_lines) + "\n\n"
-                             f"💸 <b>Qarzdorlik:</b> {debt:.0f} so‘m"
-        )
-
-        await query.edit_message_text(text, parse_mode="HTML", reply_markup=back_button)
-
-    # ➕ Doktor qo‘shish
     elif data == "add_doctor":
         await query.edit_message_text("🧾 Doktorning ismini yuboring:")
         return NAME
@@ -750,6 +710,7 @@ async def main():
     app.add_handler(conv_add_doctor)
     app.add_handler(conv_add_service)
     app.add_handler(service_quantity_conv)
+    app.add_handler(CallbackQueryHandler(my_profile, pattern="^my_profile$"))
     app.add_handler(CallbackQueryHandler(handle_menu_selection))
     app.add_handler(report_handler)
 
