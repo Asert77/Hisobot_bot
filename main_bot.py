@@ -60,7 +60,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if telegram_id in ADMINS:
         keyboard = [
             [InlineKeyboardButton("📋 Doktorlar ro'yxati", callback_data="list_doctors")],
-            [InlineKeyboardButton("➕ Doktor qo‘shish", callback_data="add_doctor")],
             [InlineKeyboardButton("📊 Hisobot", callback_data="report_main")],
             [InlineKeyboardButton("🛠 Xizmat turi", callback_data="services")],
             [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="settings")],
@@ -93,7 +92,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(text, reply_markup=markup)
         elif update.callback_query:
             await update.callback_query.message.edit_text(text, reply_markup=markup)
-        return ConversationHandler.END
+    return ConversationHandler.END
 
 # Asosiy handler
 async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
