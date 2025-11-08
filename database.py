@@ -170,6 +170,23 @@ def add_doctor_auto(telegram_id, full_name, username):
             """, (full_name, telegram_id, username))
             conn.commit()
 
+async def save_new_doctor_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    new_name = update.message.text.strip()
+    doctor_id = context.user_data.get("edit_doctor_id")
+
+    if not doctor_id:
+        await update.message.reply_text("⚠️ Noma'lum xatolik yuz berdi.")
+        return ConversationHandler.END
+
+    # Bazada yangilash
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE doctors SET name = %s WHERE id = %s", (new_name, doctor_id))
+            conn.commit()
+
+    await update.message.reply_text("✅ Ism muvaffaqiyatli yangilandi.")
+    return ConversationHandler.END
+
 def get_all_doctors():
     with get_connection() as conn:
         with conn.cursor() as cur:

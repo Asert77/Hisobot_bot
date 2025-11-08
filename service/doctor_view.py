@@ -4,6 +4,7 @@ from database import get_all_services, get_service_by_id, add_payment, get_servi
 
 
 SELECT_SERVICE_QUANTITY = 1
+EDIT_DOCTOR_NAME = range(1)
 
 
 # 🔙 Orqaga qaytish tugmasi
@@ -29,13 +30,12 @@ async def open_doctor_menu(update, context, doctor_id):
     payments = get_payments_by_doctor(doctor_id)
     total_paid = sum(float(amount) for amount, _, _ in payments)
 
-    # ❗ Qarzdorlik manfiy chiqmasligi uchun max bilan 0 qilib olish
     debt = max(total_expected - total_paid, 0)
 
     service_lines = []
     for name, price, quantity, *_ in services:
         if quantity == 0 or price == 0:
-            continue  # ❌ 0 lik xizmatni chiqarma
+            continue
         service_lines.append(f"🔹 {name} — {quantity} ta × {price:.0f} = {price * quantity:.0f} so‘m")
 
     services_text = "\n".join(service_lines) if service_lines else '🚫 Hali xizmat qo‘shilmagan.'
@@ -54,6 +54,7 @@ async def open_doctor_menu(update, context, doctor_id):
         [InlineKeyboardButton("🧾 Qarzni yopish", callback_data="close_debt")],
         [InlineKeyboardButton("➕ Qarz qo‘shish", callback_data="add_debt")],
         [InlineKeyboardButton("📊 Hisobot", callback_data=f"report_{doctor_id}")],
+        [InlineKeyboardButton("✏️ Ismni o‘zgartirish", callback_data=f"edit_name_{doctor_id}")],
         [InlineKeyboardButton("🔙 Orqaga", callback_data="list_doctors")],
     ]
     markup = InlineKeyboardMarkup(keyboard)
@@ -83,6 +84,15 @@ async def show_services_for_payment(update: Update, context: ContextTypes.DEFAUL
     await query.edit_message_text("🛠 Xizmatni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
     return SELECT_SERVICE_QUANTITY
 
+async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    doctor_id = int(query.data.split("_")[-1])
+    context.user_data["edit_doctor_id"] = doctor_id
+
+    await query.edit_message_text("✏️ Yangi ismni kiriting:")
+    return EDIT_DOCTOR_NAME
 
 async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

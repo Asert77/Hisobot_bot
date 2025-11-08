@@ -18,10 +18,10 @@ from database import (
     schedule_notification, get_doctor_telegram_id,
     get_pending_notifications, mark_notification_sent,
     get_reminder_notifications, delete_service_by_id, get_monthly_debts,
-    close_debts, doctor_exists_by_telegram, add_doctor_auto, get_doctor_by_telegram, my_profile
+    close_debts, doctor_exists_by_telegram, add_doctor_auto, get_doctor_by_telegram, my_profile, save_new_doctor_name
 )
 from pdf_report import generate_pdf_report
-from service.doctor_view import SELECT_SERVICE_QUANTITY
+from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
 from service.doctor_view import open_doctor_menu
 from service.doctor_view import (
     show_services_for_payment,  # xizmatlarni ko‘rsatish
@@ -39,7 +39,6 @@ ADMINS = list(map(int, os.getenv("ADMINS", "").split(",")))
 nest_asyncio.apply()
 
 CONFIRM_CLOSE_DEBT = 1001
-
 
 ENTER_PAYMENT_AMOUNT, ENTER_DEBT_AMOUNT = range(2)
 
@@ -344,6 +343,8 @@ async def process_debt_closing(update, context):
     return ConversationHandler.END
 
 
+
+
 async def process_service_payment(update, context):
     amount = float(update.message.text)
     doctor_id = context.user_data["doctor_id"]
@@ -617,6 +618,16 @@ async def main():
         time=time(hour=14, minute=0, tzinfo=tz)
     )
 
+    conv_edit_doctor_name = ConversationHandler(
+        entry_points=[CallbackQueryHandler(edit_name_, pattern="^edit_name_\\d+$")],
+        states={
+            EDIT_DOCTOR_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_doctor_name)
+            ]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
     service_quantity_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(show_services_for_payment, pattern="^add_service$")
@@ -710,6 +721,7 @@ async def main():
     # Step 4: Bot handlerlarini qo‘shish
     app.add_handler(conv_payment)
     app.add_handler(conv_start)
+    app.add_handler(conv_edit_doctor_name)
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
     app.add_handler(conv_report)
     app.add_handler(CallbackQueryHandler(handle_service_confirmation, pattern="^(confirm_received_|reject_received_)"))
