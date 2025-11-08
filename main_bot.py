@@ -625,7 +625,7 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_doctor_name)
             ]
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     service_quantity_conv = ConversationHandler(
@@ -638,7 +638,7 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_service_quantity)
             ],
         },
-        fallbacks=[]
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     # Doktor qo‘shish
@@ -650,7 +650,7 @@ async def main():
             TELEGRAM_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_telegram_id)],  # ✅ BU QATORNI QO‘SH
 
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     service_payment_conv = ConversationHandler(
@@ -660,7 +660,7 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_service_quantity)
             ]
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     conv_payment = ConversationHandler(
@@ -678,7 +678,7 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, process_debt_closing)
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     # Xizmat qo‘shish
@@ -688,7 +688,7 @@ async def main():
             SERVICE_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_service_name)],
             SERVICE_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_service_price)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     report_handler = ConversationHandler(
@@ -698,7 +698,7 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, process_report_range)
             ],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
 
@@ -715,7 +715,7 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, process_report_range)
             ],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     # Step 4: Bot handlerlarini qo‘shish
