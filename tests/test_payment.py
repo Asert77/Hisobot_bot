@@ -160,13 +160,3 @@ async def test_confirm_close_debt(mock_close_debts):
     mock_close_debts.assert_called_once_with(1, 20000)
     mock_query.edit_message_text.assert_called_once_with("✅ Qarzdorlik muvaffaqiyatli yopildi.")
     assert result == ConversationHandler.END
-
-import asyncio
-from telegram import Bot
-@pytest.mark.asyncio
-async def test():
-    bot = Bot("8179780114:AAF8PrDOvsnSepjbB21rW900PJlzAwxe8vM")
-    me = await bot.get_me()
-    print(me)
-
-asyncio.run(test())
