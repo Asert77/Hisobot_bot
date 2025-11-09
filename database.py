@@ -105,11 +105,19 @@ async def my_profile(update, context):
     query = update.callback_query
     telegram_id = query.from_user.id
 
-    # 1. Xizmatlar va to‘lovlar ma'lumotlarini olish
-    services = get_services_summary_by_doctor(telegram_id)
-    payments = get_payments_by_doctor(telegram_id)
+    # ✅ 1. Doctorni olish
+    doctor = get_doctor_id_by_telegram_id(telegram_id)
+    if not doctor:
+        await query.edit_message_text("⚠️ Siz ro'yxatdan o'tmagansiz.")
+        return
 
-    # 2. Xizmatlarni guruhlash
+    doctor_id = doctor["id"]
+
+    # ✅ 2. Ma'lumotlarni olish
+    services = get_services_summary_by_doctor(doctor_id)
+    payments = get_payments_by_doctor(doctor_id)
+
+    # ✅ 3. Xizmatlarni guruhlash
     service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
     for name, price, quantity, *_ in services:
         if price == 0 or quantity == 0:
@@ -128,17 +136,17 @@ async def my_profile(update, context):
 
     services_text = "\n".join(service_lines) if service_lines else "🚫 Hali xizmatlar yo‘q."
 
-    # 3. To‘lovlar
+    # ✅ 4. To‘lovlar
     total_paid = sum(float(amount) for amount, _, _ in payments)
     payment_lines = [
         f"• {date} — {amount:.1f} so‘m" for amount, _, date in payments
     ]
     payments_text = "\n".join(payment_lines) if payment_lines else "🚫 To‘lovlar yo‘q."
 
-    # 4. Qarzdorlik
+    # ✅ 5. Qarzdorlik
     debt = max(total_expected - total_paid, 0)
 
-    # 5. Matnni yig‘ish
+    # ✅ 6. Matn
     text = (
         "🧾 <b>Profilingiz</b>\n\n"
         "🛠 <b>Xizmatlaringiz:</b>\n"
@@ -148,18 +156,6 @@ async def my_profile(update, context):
         f"❌ <b>Qarzdorlik:</b> {debt:.1f} so‘m"
     )
 
-    # 6. Orqaga tugmasi
-    keyboard = [
-        [InlineKeyboardButton("🔙 Orqaga", callback_data="back_to_main")]
-    ]
-    markup = InlineKeyboardMarkup(keyboard)
-
-    # 7. Xabarni yuborish
-    await query.edit_message_text(
-        text=text,
-        parse_mode="HTML",
-        reply_markup=markup
-    )
 
 # ➕ Doktor qo‘shish
 def add_doctor(name: str, phone: str, telegram_id: int):
@@ -204,9 +200,14 @@ async def save_new_doctor_name(update: Update, context: ContextTypes.DEFAULT_TYP
         with conn.cursor() as cur:
             cur.execute("UPDATE doctors SET name = %s WHERE id = %s", (new_name, doctor_id))
             conn.commit()
+    keyboard = [
+        [InlineKeyboardButton("🔙 Orqaga", callback_data=f"open_doctor_{doctor_id}")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text("✅ Ism muvaffaqiyatli yangilandi.")
+    await update.message.reply_text("✅ Ism muvaffaqiyatli yangilandi.", reply_markup=markup)
     return ConversationHandler.END
+
 
 def get_all_doctors():
     with get_connection() as conn:

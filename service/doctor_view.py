@@ -152,7 +152,7 @@ async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # ✅ Javob
     await update.message.reply_text(
-        f"✅ {service_name} — {quantity} dona × {price} = {total_price} so‘m xizmat qo‘shildi."
+        f"✅ {service_name} — {quantity} dona × {price} = {total_price} so‘m xizmat qo‘shildi.", reply_markup=back_button
     )
     return ConversationHandler.END
 
