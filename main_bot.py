@@ -29,6 +29,9 @@ from service.doctor_view import (
     ask_service_quantity, add_service_to_doctor  # sonini kiritish
 )
 from service.report_view import start_report, ASK_REPORT_RANGE, process_report_range
+from telegram.request import HTTPXRequest
+
+request = HTTPXRequest(connect_timeout=10.0, read_timeout=20.0)
 
 tz = pytz.timezone("Asia/Tashkent")
 
@@ -597,14 +600,10 @@ async def handle_service_confirmation(update: Update, context: ContextTypes.DEFA
 async def main():
     create_tables()
 
-    # Step 1: Botni yaratish
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).request(request).build()
 
-    # Step 2: Botni initialize qilish (bu yerda job_queue mavjud bo‘ladi)
     await app.initialize()
 
-    # Step 3: Rejalashtirilgan xabarlarni qo‘shish
-    from datetime import timedelta
 
     app.job_queue.run_daily(
         send_scheduled_notifications,
