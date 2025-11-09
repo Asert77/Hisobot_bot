@@ -195,12 +195,12 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "close_debt":
         doctor_id = context.user_data.get("doctor_id")
         if not doctor_id:
-            await query.edit_message_text("❌ Doktor aniqlanmadi.")
+            await query.edit_message_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
             return ConversationHandler.END
 
         debts = get_monthly_debts(doctor_id)
         if not debts:
-            await query.edit_message_text("✅ Ushbu doktorning qarzdorligi yo‘q.")
+            await query.edit_message_text("✅ Ushbu doktorning qarzdorligi yo‘q.", reply_markup=back_button)
             return ConversationHandler.END
 
         total_debt = sum(debt for _, debt in debts)
@@ -229,11 +229,11 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
         # Qarzlarni o‘chirish funksiyasini chaqirish
         close_debts(doctor_id, context.user_data.get("debt_total", 0))
-        await query.edit_message_text("✅ Qarzdorlik muvaffaqiyatli yopildi.")
+        await query.edit_message_text("✅ Qarzdorlik muvaffaqiyatli yopildi.", reply_markup=back_button)
         return ConversationHandler.END
 
     elif data == "cancel_close_debt":
-        await query.edit_message_text("❌ Qarzni yopish bekor qilindi.")
+        await query.edit_message_text("❌ Qarzni yopish bekor qilindi.", reply_markup=back_button)
         return ConversationHandler.END
 
 
@@ -271,7 +271,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "add_debt":
         doctor_id = context.user_data.get("doctor_id")
         if not doctor_id:
-            await query.edit_message_text("❌ Doktor aniqlanmadi.")
+            await query.edit_message_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
             return ConversationHandler.END
         await query.edit_message_text("💸 Qarz miqdorini kiriting:")
         return ENTER_DEBT_AMOUNT
@@ -331,7 +331,7 @@ async def process_debt_closing(update, context):
         return ENTER_DEBT_AMOUNT
     doctor_id = context.user_data.get("doctor_id")
     if not doctor_id:
-        await update.message.reply_text("❌ Doktor aniqlanmadi.")
+        await update.message.reply_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
         return ConversationHandler.END
     # Qarzni - salbiy to‘lov sifatida qo‘shamiz
     add_payment(None, -amount, doctor_id)
@@ -354,9 +354,9 @@ async def process_service_payment(update, context):
     add_payment(service_id, amount, doctor_id, service_name)
 
     if service_name:
-        await update.message.reply_text(f"💳 {service_name} uchun {amount} so‘m to‘lov qo‘shildi.")
+        await update.message.reply_text(f"💳 {service_name} uchun {amount} so‘m to‘lov qo‘shildi.", reply_markup=back_button)
     else:
-        await update.message.reply_text(f"💳 {amount} so‘m to‘lov qo‘shildi.")
+        await update.message.reply_text(f"💳 {amount} so‘m to‘lov qo‘shildi.", reply_markup=back_button)
     return ConversationHandler.END
 
 
@@ -454,7 +454,7 @@ async def get_service_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel_close_debt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("❌ Amaliyot bekor qilindi.")
+    await query.edit_message_text("❌ Amaliyot bekor qilindi.", reply_markup=back_button)
     return ConversationHandler.END
 
 
@@ -470,7 +470,7 @@ async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     doctor_id = context.user_data.get("doctor_id")
     if not doctor_id:
-        await update.message.reply_text("❌ Doktor aniqlanmadi.")
+        await update.message.reply_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
         return ConversationHandler.END
     else:
         add_payment(None, amount, doctor_id)
@@ -491,7 +491,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     doctor_id = context.user_data.get("doctor_id")
     if not doctor_id:
-        await query.edit_message_text("❌ Doktor aniqlanmadi.")
+        await query.edit_message_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
         return ConversationHandler.END
 
     await query.edit_message_text("💳 To‘lov summasini kiriting:")
@@ -557,7 +557,7 @@ async def select_global_service(update: Update, context: ContextTypes.DEFAULT_TY
 
     service = get_service_by_id(service_id)
     if not service:
-        await query.edit_message_text("❌ Xizmat topilmadi.")
+        await query.edit_message_text("❌ Xizmat topilmadi.", reply_markup=back_button)
         return ConversationHandler.END
 
     context.user_data["selected_service_name"] = service["name"]

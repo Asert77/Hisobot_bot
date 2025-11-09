@@ -101,44 +101,65 @@ def create_tables():
     conn.close()
 
 
-async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.callback_query.from_user
-    telegram_id = user.id
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            # Doktorga biriktirilgan xizmatlar
-            cur.execute("""
-                SELECT s.name, s.price
-                FROM doctor_services ds
-                JOIN services s ON ds.service_id = s.id
-                JOIN doctors d ON ds.doctor_id = d.id
-                WHERE d.telegram_id = %s
-            """, (telegram_id,))
-            services = cur.fetchall()
+async def my_profile(update, context):
+    query = update.callback_query
+    telegram_id = query.from_user.id
 
-            cur.execute("""
-                SELECT amount, created_at
-                FROM payments p
-                JOIN doctors d ON p.doctor_id = d.id
-                WHERE d.telegram_id = %s
-                ORDER BY created_at DESC
-                LIMIT 5
-            """, (telegram_id,))
-            payments = cur.fetchall()
-    text = f"👤 <b>Profilingiz</b>\n\n"
-    if services:
-        text += "🛠 <b>Xizmatlaringiz</b>:\n"
-        for s in services:
-            text += f"• {s[0]} — {s[1]} so‘m\n"
-    else:
-        text += "🛠 Sizga biriktirilgan xizmat yo‘q.\n"
-    text += "\n💰 <b>So‘nggi to‘lovlar</b>:\n"
-    if payments:
-        for p in payments:
-            text += f"• {p[1].strftime('%Y-%m-%d')}: {p[0]} so‘m\n"
-    else:
-        text += "💸 To‘lov topilmadi.\n"
-    await update.callback_query.message.edit_text(text, parse_mode="HTML")
+    # 1. Xizmatlar va to‘lovlar ma'lumotlarini olish
+    services = get_services_summary_by_doctor(telegram_id)
+    payments = get_payments_by_doctor(telegram_id)
+
+    # 2. Xizmatlarni guruhlash
+    service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
+    for name, price, quantity, *_ in services:
+        if price == 0 or quantity == 0:
+            continue
+        service_summary[name]["quantity"] += quantity
+        service_summary[name]["price"] = price
+
+    service_lines = []
+    total_expected = 0
+    for name, data in service_summary.items():
+        q = data["quantity"]
+        p = data["price"]
+        total = q * p
+        total_expected += total
+        service_lines.append(f"• {name} — {q} ta × {p:.1f} = {total:.1f} so‘m")
+
+    services_text = "\n".join(service_lines) if service_lines else "🚫 Hali xizmatlar yo‘q."
+
+    # 3. To‘lovlar
+    total_paid = sum(float(amount) for amount, _, _ in payments)
+    payment_lines = [
+        f"• {date} — {amount:.1f} so‘m" for amount, _, date in payments
+    ]
+    payments_text = "\n".join(payment_lines) if payment_lines else "🚫 To‘lovlar yo‘q."
+
+    # 4. Qarzdorlik
+    debt = max(total_expected - total_paid, 0)
+
+    # 5. Matnni yig‘ish
+    text = (
+        "🧾 <b>Profilingiz</b>\n\n"
+        "🛠 <b>Xizmatlaringiz:</b>\n"
+        f"{services_text}\n\n"
+        "💰 <b>So‘nggi to‘lovlar:</b>\n"
+        f"{payments_text}\n\n"
+        f"❌ <b>Qarzdorlik:</b> {debt:.1f} so‘m"
+    )
+
+    # 6. Orqaga tugmasi
+    keyboard = [
+        [InlineKeyboardButton("🔙 Orqaga", callback_data="back_to_main")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
+
+    # 7. Xabarni yuborish
+    await query.edit_message_text(
+        text=text,
+        parse_mode="HTML",
+        reply_markup=markup
+    )
 
 # ➕ Doktor qo‘shish
 def add_doctor(name: str, phone: str, telegram_id: int):
