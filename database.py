@@ -105,19 +105,18 @@ async def my_profile(update, context):
     query = update.callback_query
     telegram_id = query.from_user.id
 
-    # ✅ 1. Doctorni olish
-    doctor = get_doctor_id_by_telegram_id(telegram_id)
-    if not doctor:
-        await query.edit_message_text("⚠️ Siz ro'yxatdan o'tmagansiz.")
+    # 🔹 Telegram ID orqali doctor_id ni olish
+    doctor_id = get_doctor_id_by_telegram_id(telegram_id)
+    if not doctor_id:
+        await query.edit_message_text("⚠️ Siz ro‘yxatda yo‘qsiz.")
         return
 
-    doctor_id = doctor["id"]
-
-    # ✅ 2. Ma'lumotlarni olish
+    # 🔹 Xizmatlar va to‘lovlar
     services = get_services_summary_by_doctor(doctor_id)
     payments = get_payments_by_doctor(doctor_id)
 
-    # ✅ 3. Xizmatlarni guruhlash
+    # 🔹 Xizmatlarni guruhlash
+    from collections import defaultdict
     service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
     for name, price, quantity, *_ in services:
         if price == 0 or quantity == 0:
@@ -135,18 +134,10 @@ async def my_profile(update, context):
         service_lines.append(f"• {name} — {q} ta × {p:.1f} = {total:.1f} so‘m")
 
     services_text = "\n".join(service_lines) if service_lines else "🚫 Hali xizmatlar yo‘q."
-
-    # ✅ 4. To‘lovlar
     total_paid = sum(float(amount) for amount, _, _ in payments)
-    payment_lines = [
-        f"• {date} — {amount:.1f} so‘m" for amount, _, date in payments
-    ]
+    payment_lines = [f"• {date} — {amount:.1f} so‘m" for amount, _, date in payments]
     payments_text = "\n".join(payment_lines) if payment_lines else "🚫 To‘lovlar yo‘q."
-
-    # ✅ 5. Qarzdorlik
     debt = max(total_expected - total_paid, 0)
-
-    # ✅ 6. Matn
     text = (
         "🧾 <b>Profilingiz</b>\n\n"
         "🛠 <b>Xizmatlaringiz:</b>\n"
@@ -155,6 +146,7 @@ async def my_profile(update, context):
         f"{payments_text}\n\n"
         f"❌ <b>Qarzdorlik:</b> {debt:.1f} so‘m"
     )
+    await query.edit_message_text(text=text, parse_mode="HTML")
 
 
 # ➕ Doktor qo‘shish
