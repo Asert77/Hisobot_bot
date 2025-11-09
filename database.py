@@ -712,3 +712,4 @@ def get_doctor_by_telegram(telegram_id):
             if row:
                 return {"id": row[0], "name": row[1]}
             return None
+
