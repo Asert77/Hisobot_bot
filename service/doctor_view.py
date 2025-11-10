@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from database import get_all_services, get_service_by_id, add_payment, get_services_by_doctor, add_doctor_service, schedule_notification, get_doctor_id_by_telegram_id
-
+from database import get_all_services, get_service_by_id, add_payment, get_services_by_doctor, add_doctor_service, \
+    schedule_notification, get_doctor_id_by_telegram_id, get_connection
 
 SELECT_SERVICE_QUANTITY = 1
 EDIT_DOCTOR_NAME = range(1)
@@ -159,23 +159,65 @@ async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 
-# 🔧 Doktor ichida xizmat qo‘shish bo‘limi
 async def add_service_to_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    services = get_all_services()
-    if not services:
-        await query.edit_message_text("❌ Hozircha xizmatlar mavjud emas.")
-        return ConversationHandler.END
+    doctor_id = context.user_data.get("doctor_id")
 
+    # Xizmatni tanlash
+    service_id = context.user_data.get("selected_service_id")
+    quantity = context.user_data.get("selected_quantity", 1)
 
-    keyboard = [
-        [InlineKeyboardButton(f"{name} ({price} so'm)", callback_data=f"select_service_{sid}")]
-        for sid, name, price in services
-    ]
-    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="list_doctors")])
-    await query.edit_message_text("➕ Qo‘shiladigan xizmatni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
+    # Bazadan xizmat ma’lumotlarini olish
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name, price FROM services WHERE id = %s", (service_id,))
+            service = cur.fetchone()
 
-    return SELECT_SERVICE_QUANTITY
+            if not service:
+                await query.edit_message_text("⚠️ Xizmat topilmadi.")
+                return
+
+            name, price = service
+            total = float(price) * quantity
+
+            # 🧾 Bazaga qo‘shish
+            cur.execute("""
+                INSERT INTO doctor_services (doctor_id, service_id, quantity)
+                VALUES (%s, %s, %s)
+            """, (doctor_id, service_id, quantity))
+            conn.commit()
+
+    # 🔔 Endi doktorning Telegram ID sini olish
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT telegram_id FROM doctors WHERE id = %s", (doctor_id,))
+            doctor_row = cur.fetchone()
+            if not doctor_row:
+                return
+            doctor_telegram_id = doctor_row[0]
+
+    # 📨 Xizmat qo‘shilganini doktorga xabar yuborish
+    message = (
+        f"🧾 <b>Yangi xizmat qo‘shildi!</b>\n\n"
+        f"🧑‍⚕️ <b>Xizmat nomi:</b> {name}\n"
+        f"📦 <b>Miqdori:</b> {quantity} dona\n"
+        f"💰 <b>Umumiy narx:</b> {total:.0f} so‘m"
+    )
+
+    try:
+        await context.bot.send_message(
+            chat_id=doctor_telegram_id,
+            text=message,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Xabar yuborishda xato: {e}")
+
+    # ✅ Admin uchun javob
+    await query.edit_message_text(
+        text=f"✅ {name} — {quantity} dona × {float(price):.0f} = {total:.0f} so‘m xizmat qo‘shildi.",
+        parse_mode="HTML"
+    )
 

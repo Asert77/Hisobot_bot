@@ -1,9 +1,6 @@
 import asyncio
 import os
-from datetime import time
-
 import nest_asyncio
-import pytz
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -15,10 +12,8 @@ from database import (
     create_tables, add_doctor, get_all_doctors, add_service,
     add_payment, get_payments_by_doctor, get_services_by_doctor,
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
-    schedule_notification, get_doctor_telegram_id,
-    get_pending_notifications, mark_notification_sent,
-    get_reminder_notifications, delete_service_by_id, get_monthly_debts,
-    close_debts, doctor_exists_by_telegram, add_doctor_auto, get_doctor_by_telegram, my_profile, save_new_doctor_name
+ delete_service_by_id, get_monthly_debts,
+    close_debts, add_doctor_auto, my_profile, save_new_doctor_name
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
@@ -32,9 +27,6 @@ from service.report_view import start_report, ASK_REPORT_RANGE, process_report_r
 from telegram.request import HTTPXRequest
 
 request = HTTPXRequest(connect_timeout=10.0, read_timeout=20.0)
-
-tz = pytz.timezone("Asia/Tashkent")
-
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 ADMINS = list(map(int, os.getenv("ADMINS", "").split(",")))
@@ -435,10 +427,6 @@ async def get_service_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("✅ Doktor uchun xizmat qo‘shilmoqda")
         add_service(doctor_id, name, price)
 
-        message = f"Yangi xizmat qo‘shildi:\n🔹 {name} - {price:.0f} so‘m\nIltimos, qabul qildingizmi?"
-        schedule_notification(doctor_id, message)
-        print("📩 schedule_notification chaqirildi")
-
         await update.message.reply_text(
             f"✅ Xizmat qo‘shildi (doktor uchun):\n🔹 {name} - {price:.0f} so‘m",
             reply_markup=back_button
@@ -507,49 +495,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Jarayon bekor qilindi.", reply_markup=back_button)
     return ConversationHandler.END
 
-async def send_scheduled_notifications(context: ContextTypes.DEFAULT_TYPE):
-    notifications = get_pending_notifications()
-    for notif_id, doctor_id, message in notifications:
-        telegram_id = get_doctor_telegram_id(doctor_id)
-        if telegram_id:
-            try:
-                # Tugmalar
-                keyboard = InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("✅ Ha", callback_data=f"confirm_received_{notif_id}"),
-                        InlineKeyboardButton("❌ Yo‘q", callback_data=f"reject_received_{notif_id}")
-                    ]
-                ])
-                await context.bot.send_message(
-                    chat_id=telegram_id,
-                    text=f"📩 {message}",
-                    reply_markup=keyboard
-                )
-                mark_notification_sent(notif_id)
-            except Exception as e:
-                print(f"❌ Xatolik (send): {e}")
-
-
-async def resend_reminder_notifications(context: ContextTypes.DEFAULT_TYPE):
-    reminders = get_reminder_notifications()
-    for notif_id, doctor_id, message in reminders:
-        telegram_id = get_doctor_telegram_id(doctor_id)
-        if telegram_id:
-            try:
-                keyboard = InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("✅ Ha", callback_data=f"confirm_received_{notif_id}"),
-                        InlineKeyboardButton("❌ Yo‘q", callback_data=f"reject_received_{notif_id}")
-                    ]
-                ])
-                await context.bot.send_message(
-                    chat_id=telegram_id,
-                    text=f"🔁 Eslatma!\n📩 {message}\n\nQabul qildingizmi?",
-                    reply_markup=keyboard
-                )
-            except Exception as e:
-                print(f"❌ Xatolik (reminder): {e}")
-
 
 async def select_global_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -569,32 +514,6 @@ async def select_global_service(update: Update, context: ContextTypes.DEFAULT_TY
     await query.edit_message_text(f"📦 {service['name']} sonini kiriting:")
     return SELECT_SERVICE_QUANTITY
 
-async def handle_service_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-
-    notif_id = int(data.split("_")[-1])
-    telegram_id = query.from_user.id
-
-    from database import (
-        get_notification_doctor_id, get_doctor_telegram_id,
-        mark_notification_confirmed
-    )
-
-    actual_doctor_id = get_notification_doctor_id(notif_id)
-    if not actual_doctor_id or get_doctor_telegram_id(actual_doctor_id) != telegram_id:
-        await query.edit_message_text("❌ Sizda bu amalni bajarish huquqi yo‘q.")
-        return
-
-    if data.startswith("confirm_received_"):
-        mark_notification_confirmed(notif_id)
-        await query.edit_message_text("✅ Qabul qilindi. Rahmat!")
-
-    elif data.startswith("reject_received_"):
-        # ❗️XABARNI O‘CHIRMAYMIZ — shunchaki adminni ogohlantiramiz
-        await query.edit_message_text("❌ Rad etildi. \n⏳ Xabar qayta yuboriladi.")
-
 
 # Botni ishga tushirish
 async def main():
@@ -604,17 +523,6 @@ async def main():
 
     await app.initialize()
 
-
-    app.job_queue.run_daily(
-        send_scheduled_notifications,
-        time=time(hour=9, minute=0, tzinfo=tz)
-    )
-
-    # 14:00 - eslatma xabari
-    app.job_queue.run_daily(
-        resend_reminder_notifications,
-        time=time(hour=14, minute=0, tzinfo=tz)
-    )
 
     conv_edit_doctor_name = ConversationHandler(
         entry_points=[CallbackQueryHandler(edit_name_, pattern="^edit_name_\\d+$")],
@@ -722,7 +630,6 @@ async def main():
     app.add_handler(conv_edit_doctor_name)
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
     app.add_handler(conv_report)
-    app.add_handler(CallbackQueryHandler(handle_service_confirmation, pattern="^(confirm_received_|reject_received_)"))
     app.add_handler(CallbackQueryHandler(add_service_to_doctor, pattern="^add_service_to_doctor$"))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(service_payment_conv)

@@ -83,19 +83,6 @@ def create_tables():
         );
     """)
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS doctor_service_notifications (
-        id SERIAL PRIMARY KEY,
-        doctor_id INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
-        message TEXT NOT NULL,
-        sent BOOLEAN DEFAULT FALSE,
-        confirmed BOOLEAN DEFAULT FALSE,
-        sent_at TIMESTAMP NOT NULL,
-        remind_at TIMESTAMP NOT NULL
-);
-
-    """)
-
     conn.commit()
     cur.close()
     conn.close()
@@ -446,105 +433,6 @@ def get_services_summary_by_doctor(doctor_id, start_date=None, end_date=None):
             return cur.fetchall()
 
 
-def schedule_notification(doctor_id, message):
-    now = datetime.now()
-    tomorrow_9am = (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
-    tomorrow_14pm = (now + timedelta(days=1)).replace(hour=14, minute=0, second=0, microsecond=0)
-
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO doctor_service_notifications
-                (doctor_id, message, sent, confirmed, sent_at, remind_at)
-                VALUES (%s, %s, FALSE, FALSE, %s, %s)
-            """, (doctor_id, message, tomorrow_9am, tomorrow_14pm))
-
-
-async def send_scheduled_notifications(context: ContextTypes.DEFAULT_TYPE):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT n.id, n.doctor_id, n.message, d.telegram_id
-                FROM doctor_service_notifications n
-                JOIN doctors d ON d.id = n.doctor_id
-                WHERE n.sent = FALSE AND n.sent_at <= NOW()
-            """)
-            notifications = cur.fetchall()
-
-    for notif_id, doctor_id, message, telegram_id in notifications:
-        # ✅ Xabar yuborilishidan oldin sent = TRUE qilish
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE doctor_service_notifications SET sent = TRUE WHERE id = %s", (notif_id,))
-
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Ha", callback_data=f"confirm_received_{notif_id}")],
-            [InlineKeyboardButton("❌ Yo‘q", callback_data=f"reject_received_{notif_id}")]
-        ])
-
-        await context.bot.send_message(
-            chat_id=telegram_id,
-            text=f"📩 {message}\n\nQabul qildingizmi?",
-            reply_markup=keyboard
-        )
-
-def get_notification_doctor_id(notif_id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT doctor_id FROM doctor_service_notifications WHERE id = %s
-            """, (notif_id,))
-            result = cur.fetchone()
-            return result[0] if result else None
-
-async def resend_reminder_notifications(context: ContextTypes.DEFAULT_TYPE):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT n.id, n.doctor_id, n.message, d.telegram_id
-                FROM doctor_service_notifications n
-                JOIN doctors d ON d.id = n.doctor_id
-                WHERE n.sent = TRUE AND n.confirmed = FALSE AND n.remind_at <= NOW()
-            """)
-            reminders = cur.fetchall()
-
-    for notif_id, doctor_id, message, telegram_id in reminders:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Ha", callback_data=f"confirm_received_{notif_id}")],
-            [InlineKeyboardButton("❌ Yo‘q", callback_data=f"reject_received_{notif_id}")]
-        ])
-
-        await context.bot.send_message(
-            chat_id=telegram_id,
-            text=f"🔁 Eslatma!\n{message}\n\nQabul qildingizmi?",
-            reply_markup=keyboard
-        )
-
-
-async def handle_notification_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    if data.startswith("confirm_received_"):
-        notif_id = int(data.split("_")[-1])
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE doctor_service_notifications
-                    SET confirmed = TRUE
-                    WHERE id = %s
-                """, (notif_id,))
-        await query.edit_message_text("✅ Xizmat qabul qilindi.")
-    elif data.startswith("reject_received_"):
-        notif_id = int(data.split("_")[-1])
-        # Agar yo‘q deb bosgan bo‘lsa, shunchaki qayd etmaslik mumkin (yoki log yuritish)
-        await query.edit_message_text("❌ Xizmat rad etildi.")
-
-def delete_notification(notif_id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM doctor_service_notifications WHERE id = %s", (notif_id,))
-
 def get_doctor_telegram_id(doctor_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -560,58 +448,6 @@ def get_doctor_name_by_id(doctor_id):
             result = cur.fetchone()
             return result[0] if result else "Noma'lum doktor"
 
-
-def get_pending_notifications():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, doctor_id, message FROM doctor_service_notifications
-                WHERE NOT sent AND sent_at <= NOW()
-            """)
-            return cur.fetchall()
-
-
-def mark_notification_sent(notification_id: int):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE doctor_service_notifications
-                SET sent = TRUE, sent_at = NOW()
-                WHERE id = %s
-            """, (notification_id,))
-        conn.commit()
-
-
-def get_reminder_notifications():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, doctor_id, message
-                FROM doctor_service_notifications
-                WHERE confirmed = FALSE AND remind_at <= NOW()
-            """)
-            return cur.fetchall()
-
-def mark_notification_confirmed(notification_id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE doctor_service_notifications
-                SET confirmed = TRUE
-                WHERE id = %s
-            """, (notification_id,))
-
-
-def confirm_notification(doctor_telegram_id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE doctor_service_notifications
-                SET confirmed = TRUE
-                WHERE doctor_id = (
-                    SELECT id FROM doctors WHERE telegram_id = %s
-                ) AND confirmed = FALSE
-            """, (doctor_telegram_id,))
 
 def delete_service_by_id(service_id: int):
     with get_connection() as conn:
