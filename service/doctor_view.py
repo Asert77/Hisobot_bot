@@ -72,17 +72,26 @@ async def show_services_for_payment(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.answer()
 
-    services = get_all_services()
+    # Bazadan xizmatlar ro‘yxatini olish
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name, price FROM services ORDER BY id")
+            services = cur.fetchall()
+
     if not services:
-        await query.edit_message_text("❌ Xizmatlar topilmadi.")
+        await query.edit_message_text("🚫 Hozircha xizmatlar mavjud emas.")
         return ConversationHandler.END
 
-    keyboard = [
-        [InlineKeyboardButton(f"{name} ({price} so'm)", callback_data=f"select_service_{sid}")]
-        for sid, name, price in services
-    ]
-    await query.edit_message_text("🛠 Xizmatni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
-    return SELECT_SERVICE_QUANTITY
+    # Tugmalar yaratish
+    keyboard = []
+    for service_id, name, price in services:
+        keyboard.append([InlineKeyboardButton(
+            f"{name} — {price:.0f} so‘m",
+            callback_data=f"select_service_{service_id}"
+        )])
+
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("📋 Quyidagi xizmatlardan birini tanlang:", reply_markup=markup)
 
 async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -98,17 +107,13 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # Callbackdan xizmat ID sini ajratamiz
     try:
         service_id = int(query.data.split("_")[-1])
     except (ValueError, IndexError):
         await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
         return ConversationHandler.END
 
-    # ID ni saqlab qo‘yamiz (keyinchalik add_service_to_doctor() ishlatadi)
-    context.user_data["selected_service_id"] = service_id
-
-    # Bazadan xizmat ma’lumotlarini tekshirib olaylik
+    # Bazadan xizmat ma'lumotlarini olish
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT name, price FROM services WHERE id = %s", (service_id,))
@@ -120,12 +125,13 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     name, price = service
 
-    # Doktordan miqdorni so‘raymiz
+    # 🔹 Contextda saqlaymiz
+    context.user_data["selected_service_id"] = service_id
     context.user_data["selected_service_name"] = name
     context.user_data["selected_service_price"] = float(price)
 
     await query.edit_message_text(
-        text=f"📦 <b>{name}</b> uchun miqdorni kiriting:",
+        text=f"📦 <b>{name}</b> uchun sonini kiriting:",
         parse_mode="HTML"
     )
 
@@ -133,30 +139,20 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        quantity = int(update.message.text)
-        if quantity <= 0:
-            raise ValueError
+        quantity = int(update.message.text.strip())
     except ValueError:
-        await update.message.reply_text("❌ To‘g‘ri son kiriting (musbat butun son).")
+        await update.message.reply_text("❌ Iltimos, faqat raqam kiriting.")
         return SELECT_SERVICE_QUANTITY
 
-    price = context.user_data["selected_service_price"]
-    service_name = context.user_data["selected_service_name"]
-    doctor_id = context.user_data["doctor_id"]
-    service_id = context.user_data["selected_service_id"]
+    name = context.user_data.get("selected_service_name")
+    price = context.user_data.get("selected_service_price")
+    total = quantity * price
 
-    add_doctor_service(doctor_id, service_id, quantity)
-
-    total_price = quantity * price
-
-    # ✅ Javob
     await update.message.reply_text(
-        f"✅ {service_name} — {quantity} dona × {price} = {total_price} so‘m xizmat qo‘shildi.", reply_markup=back_button
+        f"✅ {name} — {quantity} dona × {price:.0f} = {total:.0f} so‘m xizmat qo‘shildi."
     )
+
     return ConversationHandler.END
-
-
-
 
 async def add_service_to_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
