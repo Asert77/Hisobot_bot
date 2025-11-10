@@ -258,26 +258,3 @@ async def test_select_global_service_not_found(mock_get_service):
     mock_query.answer.assert_awaited_once()
     mock_query.edit_message_text.assert_awaited_once_with("❌ Xizmat topilmadi.")
     assert result == ConversationHandler.END
-
-from main_bot import handle_service_confirmation
-
-@pytest.mark.asyncio
-@patch("main_bot.get_notification_doctor_id")
-@patch("main_bot.get_doctor_telegram_id")
-@patch("main_bot.mark_notification_confirmed")
-async def test_handle_service_confirmation_accepted(mock_mark, mock_get_telegram, mock_get_doctor_id):
-    mock_get_doctor_id.return_value = 10
-    mock_get_telegram.return_value = 12345678
-
-    mock_query = AsyncMock()
-    mock_query.data = "confirm_received_1"
-    mock_query.from_user.id = 12345678
-
-    mock_update = MagicMock(callback_query=mock_query)
-    mock_context = MagicMock()
-
-    await handle_service_confirmation(mock_update, mock_context)
-
-    mock_query.answer.assert_awaited_once()
-    mock_mark.assert_called_once_with(1)
-    mock_query.edit_message_text.assert_awaited_once_with("✅ Qabul qilindi. Rahmat!")

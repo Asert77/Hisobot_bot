@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from database import get_all_services, get_service_by_id, add_payment, get_services_by_doctor, add_doctor_service, \
-    schedule_notification, get_doctor_id_by_telegram_id, get_connection
+ get_doctor_id_by_telegram_id, get_connection
 
 SELECT_SERVICE_QUANTITY = 1
 EDIT_DOCTOR_NAME = range(1)
@@ -138,17 +138,9 @@ async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
     doctor_id = context.user_data["doctor_id"]
     service_id = context.user_data["selected_service_id"]
 
-    # ✅ Xizmatni bog‘laymiz
     add_doctor_service(doctor_id, service_id, quantity)
 
-    # ✅ Xabar rejalashtirish
     total_price = quantity * price
-    message = (
-        f"Yangi xizmat bog‘landi:\n"
-        f"🔹 {service_name} — {quantity} dona × {price:.0f} = {total_price:.0f} so‘m\n\n"
-        f"Iltimos, qabul qildingizmi?"
-    )
-    schedule_notification(doctor_id, message)
 
     # ✅ Javob
     await update.message.reply_text(
