@@ -101,55 +101,75 @@ def create_tables():
     conn.close()
 
 
-async def my_profile(update, context):
+from collections import defaultdict
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
+from telegram.ext import ContextTypes
+from decimal import Decimal
+from database import get_services_summary_by_doctor, get_payments_by_doctor, get_doctor_id_by_telegram_id
+
+
+async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     telegram_id = query.from_user.id
 
-    # 🔹 Telegram ID orqali doctor_id ni olish
+    # 🧩 1. Doktor ID ni olish
     doctor_id = get_doctor_id_by_telegram_id(telegram_id)
     if not doctor_id:
         await query.edit_message_text("⚠️ Siz ro‘yxatda yo‘qsiz.")
         return
 
-    # 🔹 Xizmatlar va to‘lovlar
+    # 🧾 2. Ma’lumotlarni olish
     services = get_services_summary_by_doctor(doctor_id)
     payments = get_payments_by_doctor(doctor_id)
 
-    # 🔹 Xizmatlarni guruhlash
-    from collections import defaultdict
-    service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
+    # 🛠 3. Xizmatlarni guruhlash
+    service_summary = defaultdict(lambda: {"quantity": 0, "price": 0.0})
     for name, price, quantity, *_ in services:
+        # Decimal → float
+        price = float(price) if isinstance(price, Decimal) else price
+        quantity = float(quantity) if isinstance(quantity, Decimal) else quantity
+
         if price == 0 or quantity == 0:
             continue
+
         service_summary[name]["quantity"] += quantity
         service_summary[name]["price"] = price
 
+    # 🧮 4. Hisoblash
     service_lines = []
-    total_expected = 0
+    total_expected = 0.0
+
     for name, data in service_summary.items():
-        q = data["quantity"]
-        p = data["price"]
+        q = int(data["quantity"])
+        p = float(data["price"])
         total = q * p
         total_expected += total
-        service_lines.append(f"• {name} — {q} ta × {p:.1f} = {total:.1f} so‘m")
+        service_lines.append(f"• {name} — {q} ta × {p:.0f} = {total:.0f} so‘m")
 
     services_text = "\n".join(service_lines) if service_lines else "🚫 Hali xizmatlar yo‘q."
+
     total_paid = sum(float(amount) for amount, _, _ in payments)
-    payment_lines = [f"• {date} — {amount:.1f} so‘m" for amount, _, date in payments]
+    payment_lines = [f"• {date} — {float(amount):.0f} so‘m" for amount, _, date in payments]
     payments_text = "\n".join(payment_lines) if payment_lines else "🚫 To‘lovlar yo‘q."
-    debt = max(total_expected - total_paid, 0)
+
+    debt = max(float(total_expected) - float(total_paid), 0)
+
     text = (
         "🧾 <b>Profilingiz</b>\n\n"
         "🛠 <b>Xizmatlaringiz:</b>\n"
         f"{services_text}\n\n"
         "💰 <b>So‘nggi to‘lovlar:</b>\n"
         f"{payments_text}\n\n"
-        f"❌ <b>Qarzdorlik:</b> {debt:.1f} so‘m"
+        f"❌ <b>Qarzdorlik:</b> {debt:.0f} so‘m"
     )
-    await query.edit_message_text(text=text, parse_mode="HTML")
+
+    await query.edit_message_text(
+        text=text,
+        parse_mode="HTML",
+    )
 
 
-# ➕ Doktor qo‘shish
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:
         with conn.cursor() as cur:
