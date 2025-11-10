@@ -101,13 +101,6 @@ def create_tables():
     conn.close()
 
 
-from collections import defaultdict
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram import Update
-from telegram.ext import ContextTypes
-from decimal import Decimal
-from database import get_services_summary_by_doctor, get_payments_by_doctor, get_doctor_id_by_telegram_id
-
 
 async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
