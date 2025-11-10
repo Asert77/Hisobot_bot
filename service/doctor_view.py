@@ -98,30 +98,37 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    service_id = int(query.data.split("_")[-1])
-    context.user_data["selected_service_id"] = service_id
-
-    service = get_service_by_id(service_id)
-    if not service:
-        await query.edit_message_text("❌ Xizmat topilmadi.")
+    # Callbackdan xizmat ID sini ajratamiz
+    try:
+        service_id = int(query.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
         return ConversationHandler.END
 
-    context.user_data["selected_service_name"] = service["name"]
-    context.user_data["selected_service_price"] = service["price"]
+    # ID ni saqlab qo‘yamiz (keyinchalik add_service_to_doctor() ishlatadi)
+    context.user_data["selected_service_id"] = service_id
 
-    # ✅ doctor_id ni context.user_data ichiga qo‘shish
-    doctor_id = context.user_data.get("doctor_id")
-    if not doctor_id:
-        # Fallback: Xabar foydalanuvchisi orqali aniqlash (agar kerak bo‘lsa)
-        telegram_id = query.from_user.id
-        doctor_id = get_doctor_id_by_telegram_id(telegram_id)
-        if doctor_id:
-            context.user_data["doctor_id"] = doctor_id
-        else:
-            await query.edit_message_text("❌ Doktor aniqlanmadi.")
-            return ConversationHandler.END
+    # Bazadan xizmat ma’lumotlarini tekshirib olaylik
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name, price FROM services WHERE id = %s", (service_id,))
+            service = cur.fetchone()
 
-    await query.edit_message_text(f"📦 {service['name']} sonini kiriting:")
+    if not service:
+        await query.edit_message_text("⚠️ Xizmat topilmadi.")
+        return ConversationHandler.END
+
+    name, price = service
+
+    # Doktordan miqdorni so‘raymiz
+    context.user_data["selected_service_name"] = name
+    context.user_data["selected_service_price"] = float(price)
+
+    await query.edit_message_text(
+        text=f"📦 <b>{name}</b> uchun miqdorni kiriting:",
+        parse_mode="HTML"
+    )
+
     return SELECT_SERVICE_QUANTITY
 
 async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
