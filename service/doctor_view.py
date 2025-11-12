@@ -237,7 +237,6 @@ async def add_service_to_doctor(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         print(f"Xabar yuborishda xato: {e}")
 
-    # ✅ Admin uchun javob
     await query.edit_message_text(
         text=f"✅ {name} — {quantity} dona × {float(price):.0f} = {total:.0f} so‘m xizmat qo‘shildi.",
         parse_mode="HTML"
