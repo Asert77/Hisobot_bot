@@ -115,7 +115,6 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print("🟢 Xizmat ID:", service_id)
 
-    # Bazadan xizmatni olish
     service = get_service_by_id(service_id)
     print("🔵 get_service_by_id() natijasi:", service)
 
