@@ -102,8 +102,37 @@ async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("✅ select_service ishladi!")
-    return ConversationHandler.END
+
+    data = query.data
+    print(f"📩 CALLBACK DATA: {data}")  # 👈 shu logni terminalda ko‘ramiz
+
+    try:
+        service_id = int(data.split("_")[-1])
+    except (ValueError, IndexError):
+        print("⚠️ Xizmat ID ajratib bo‘lmadi.")
+        await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
+        return ConversationHandler.END
+
+    print(f"🔍 Olingan service_id = {service_id}")
+
+    # 🔹 Bazadan olish
+    service = get_service_by_id(service_id)
+    print(f"🧾 get_service_by_id() natijasi: {service}")
+
+    if not service:
+        await query.edit_message_text("⚠️ Xizmat topilmadi.")
+        return ConversationHandler.END
+
+    context.user_data["selected_service_id"] = service["id"]
+    context.user_data["selected_service_name"] = service["name"]
+    context.user_data["selected_service_price"] = float(service["price"])
+
+    await query.edit_message_text(
+        text=f"📦 <b>{service['name']}</b> uchun sonini kiriting:",
+        parse_mode="HTML"
+    )
+
+    return SELECT_SERVICE_QUANTITY
 
 async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1️⃣ Miqdorni tekshiramiz

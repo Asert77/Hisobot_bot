@@ -631,7 +631,6 @@ async def main():
     app.add_handler(conv_payment)
     app.add_handler(conv_report)
     app.add_handler(conv_edit_doctor_name)
-
     app.add_handler(CallbackQueryHandler(select_service, pattern="^select_service_\\d+$"))
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
     app.add_handler(CallbackQueryHandler(add_service_to_doctor, pattern="^add_service_to_doctor$"))
