@@ -110,8 +110,15 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
         return ConversationHandler.END
 
-    # 🔍 Xizmatni bazadan olamiz (services jadvalidan)
+    # 👇👇👇 Shu YERGA loglar qo‘yiladi 👇👇👇
+    print("📩 CALLBACK DATA:", data)
+    print("🔎 PARSED SERVICE ID:", service_id)
+
     service = get_service_by_id(service_id)
+
+    # 👇 BAZADAN CHIQGAN NATIJA LOGI 👇
+    print("📋 SERVICE FROM DB:", service)
+
     if not service:
         await query.edit_message_text("⚠️ Xizmat topilmadi.")
         return ConversationHandler.END

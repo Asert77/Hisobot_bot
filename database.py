@@ -360,9 +360,15 @@ def get_service_by_id(service_id):
         with conn.cursor() as cur:
             cur.execute("SELECT id, name, price FROM services WHERE id = %s", (service_id,))
             row = cur.fetchone()
-            if row:
-                return {"id": row[0], "name": row[1], "price": float(row[2])}
-            return None
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "name": row[1],
+        "price": float(row[2]),
+    }
 
 # 💵 To‘lov qo‘shish
 def add_payment(service_id, amount, doctor_id, service_name=None):
