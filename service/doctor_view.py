@@ -99,36 +99,11 @@ async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text("✏️ Yangi ismni kiriting:")
     return EDIT_DOCTOR_NAME
 
-import logging
-
 async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.basicConfig(level=logging.INFO)
-    logging.info("✅ select_service ishladi!")
-
     query = update.callback_query
     await query.answer()
-    data = query.data
-    try:
-        service_id = int(data.split("_")[-1])
-    except (ValueError, IndexError):
-        await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
-        return ConversationHandler.END
-    print("📩 CALLBACK DATA:", data)
-    print("🔎 PARSED SERVICE ID:", service_id)
-    service = get_service_by_id(service_id)
-    print("📋 SERVICE FROM DB:", service)
-    if not service:
-        await query.edit_message_text("⚠️ Xizmat topilmadi.")
-        return ConversationHandler.END
-
-    context.user_data["selected_service_id"] = service["id"]
-    context.user_data["selected_service_name"] = service["name"]
-    context.user_data["selected_service_price"] = float(service["price"])
-    await query.edit_message_text(
-        text=f"📦 <b>{service['name']}</b> uchun sonini kiriting:",
-        parse_mode="HTML"
-    )
-    return SELECT_SERVICE_QUANTITY
+    await query.edit_message_text("✅ select_service ishladi!")
+    return ConversationHandler.END
 
 async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1️⃣ Miqdorni tekshiramiz
