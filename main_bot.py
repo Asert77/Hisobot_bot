@@ -624,24 +624,21 @@ async def main():
         fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
-    # Step 4: Bot handlerlarini qo‘shish
-    app.add_handler(conv_payment)
+    # 1️⃣ Asosiy ConversationHandler’lar
     app.add_handler(conv_start)
-    app.add_handler(conv_edit_doctor_name)
-    app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
-    app.add_handler(conv_report)
-    app.add_handler(CallbackQueryHandler(select_service, pattern="^select_service_"))
-    app.add_handler(CallbackQueryHandler(add_service_to_doctor, pattern="^add_service_to_doctor$"))
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(service_payment_conv)
     app.add_handler(conv_add_doctor)
     app.add_handler(conv_add_service)
-    app.add_handler(service_quantity_conv)
+    app.add_handler(conv_payment)
+    app.add_handler(conv_report)
+    app.add_handler(conv_edit_doctor_name)
+
+    app.add_handler(CallbackQueryHandler(select_service, pattern="^select_service_\\d+$"))
+    app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
+    app.add_handler(CallbackQueryHandler(add_service_to_doctor, pattern="^add_service_to_doctor$"))
     app.add_handler(CallbackQueryHandler(my_profile, pattern="^my_profile$"))
     app.add_handler(report_handler)
     app.add_handler(CallbackQueryHandler(handle_menu_selection))
 
-    # Step 5: Botni ishga tushurish
 
     print("🤖 Bot ishga tushdi...")
     await app.run_polling()
