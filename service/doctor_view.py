@@ -104,31 +104,36 @@ async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     data = query.data
-    print(f"📩 CALLBACK DATA: {data}")  # 👈 shu logni terminalda ko‘ramiz
+    print("🟡 CALLBACK KELDI:", data)
 
     try:
         service_id = int(data.split("_")[-1])
     except (ValueError, IndexError):
-        print("⚠️ Xizmat ID ajratib bo‘lmadi.")
+        print("⚠️ Xizmat ID ajratib bo‘lmadi!")
         await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
         return ConversationHandler.END
 
-    print(f"🔍 Olingan service_id = {service_id}")
+    print("🟢 Xizmat ID:", service_id)
 
-    # 🔹 Bazadan olish
+    # Bazadan xizmatni olish
     service = get_service_by_id(service_id)
-    print(f"🧾 get_service_by_id() natijasi: {service}")
+    print("🔵 get_service_by_id() natijasi:", service)
 
     if not service:
-        await query.edit_message_text("⚠️ Xizmat topilmadi.")
+        await query.edit_message_text("⚠️ Xizmat topilmadi (bazadan hech narsa qaytmadi).")
         return ConversationHandler.END
 
-    context.user_data["selected_service_id"] = service["id"]
-    context.user_data["selected_service_name"] = service["name"]
-    context.user_data["selected_service_price"] = float(service["price"])
+    name = service["name"]
+    price = float(service["price"])
+    print(f"✅ Xizmat topildi: {name} ({price} so‘m)")
+
+    # Context
+    context.user_data["selected_service_id"] = service_id
+    context.user_data["selected_service_name"] = name
+    context.user_data["selected_service_price"] = price
 
     await query.edit_message_text(
-        text=f"📦 <b>{service['name']}</b> uchun sonini kiriting:",
+        text=f"📦 <b>{name}</b> uchun sonini kiriting:",
         parse_mode="HTML"
     )
 
