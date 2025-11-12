@@ -99,7 +99,12 @@ async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text("✏️ Yangi ismni kiriting:")
     return EDIT_DOCTOR_NAME
 
+import logging
+
 async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.basicConfig(level=logging.INFO)
+    logging.info("✅ select_service ishladi!")
+
     query = update.callback_query
     await query.answer()
     data = query.data

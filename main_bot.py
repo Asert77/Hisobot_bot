@@ -638,8 +638,8 @@ async def main():
     app.add_handler(conv_add_service)
     app.add_handler(service_quantity_conv)
     app.add_handler(CallbackQueryHandler(my_profile, pattern="^my_profile$"))
-    app.add_handler(CallbackQueryHandler(handle_menu_selection))
     app.add_handler(report_handler)
+    app.add_handler(CallbackQueryHandler(handle_menu_selection))
 
     # Step 5: Botni ishga tushurish
 
