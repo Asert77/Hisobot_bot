@@ -75,11 +75,11 @@ async def show_services_for_payment(update: Update, context: ContextTypes.DEFAUL
         return
 
     keyboard = []
-    for sid, name, price in services:
+    for service_id, name, price in services:
         keyboard.append([
             InlineKeyboardButton(
                 f"{name} — {price:.0f} so‘m",
-                callback_data=f"select_service_{sid}"   # 👈 MUHIM
+                callback_data=f"select_service_{service_id}"   # 👈 MUHIM
             )
         ])
 
@@ -102,39 +102,28 @@ async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
-    data = query.data  # masalan: "select_service_5"
+    data = query.data
     try:
         service_id = int(data.split("_")[-1])
     except (ValueError, IndexError):
         await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
         return ConversationHandler.END
-
-    # 👇👇👇 Shu YERGA loglar qo‘yiladi 👇👇👇
     print("📩 CALLBACK DATA:", data)
     print("🔎 PARSED SERVICE ID:", service_id)
-
     service = get_service_by_id(service_id)
-
-    # 👇 BAZADAN CHIQGAN NATIJA LOGI 👇
     print("📋 SERVICE FROM DB:", service)
-
     if not service:
         await query.edit_message_text("⚠️ Xizmat topilmadi.")
         return ConversationHandler.END
 
-    # service = {"id": ..., "name": ..., "price": ...}
     context.user_data["selected_service_id"] = service["id"]
     context.user_data["selected_service_name"] = service["name"]
     context.user_data["selected_service_price"] = float(service["price"])
-
     await query.edit_message_text(
         text=f"📦 <b>{service['name']}</b> uchun sonini kiriting:",
         parse_mode="HTML"
     )
-
     return SELECT_SERVICE_QUANTITY
-
 
 async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1️⃣ Miqdorni tekshiramiz
