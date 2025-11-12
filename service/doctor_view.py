@@ -65,29 +65,29 @@ async def open_doctor_menu(update, context, doctor_id):
 
 
 async def show_services_for_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    # Bazadan xizmatlar ro‘yxatini olish
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, price FROM services ORDER BY id")
+            cur.execute("SELECT id, name, price FROM services ORDER BY id ASC")
             services = cur.fetchall()
 
     if not services:
-        await query.edit_message_text("🚫 Hozircha xizmatlar mavjud emas.")
-        return ConversationHandler.END
+        await update.callback_query.edit_message_text("⚠️ Xizmatlar topilmadi.")
+        return
 
-    # Tugmalar yaratish
     keyboard = []
-    for service_id, name, price in services:
-        keyboard.append([InlineKeyboardButton(
-            f"{name} — {price:.0f} so‘m",
-            callback_data=f"select_service_{service_id}"
-        )])
+    for sid, name, price in services:
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{name} — {price:.0f} so‘m",
+                callback_data=f"select_service_{sid}"   # 👈 MUHIM
+            )
+        ])
 
     markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text("📋 Quyidagi xizmatlardan birini tanlang:", reply_markup=markup)
+    await update.callback_query.edit_message_text(
+        "🧾 Xizmat turini tanlang:",
+        reply_markup=markup
+    )
 
 async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -149,8 +149,6 @@ async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("⚠️ Xizmat ma'lumotlari topilmadi. Qaytadan urinib ko‘ring.")
         return ConversationHandler.END
 
-    # Agar doctor_id yo'q bo‘lsa (masalan, foydalanuvchi to‘g‘ridan-to‘g‘ri bosgan bo‘lsa),
-    # uni telegram_id orqali doktor jadvalidan topishga harakat qilamiz
     if not doctor_id:
         telegram_id = update.effective_user.id
         doctor_id = get_doctor_id_by_telegram_id(telegram_id)
