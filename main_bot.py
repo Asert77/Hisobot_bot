@@ -540,7 +540,7 @@ async def main():
         ],
         states={
             SELECT_SERVICE_QUANTITY: [
-                CallbackQueryHandler(select_service, pattern="^select_service_\\d+$"),  # ✅ Bu kerak
+                CallbackQueryHandler(select_service, pattern="^select_service_"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_service_quantity)
             ],
         },
