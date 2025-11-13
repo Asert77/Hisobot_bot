@@ -359,20 +359,10 @@ import logging
 def get_service_by_id(service_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            logging.basicConfig(level=logging.INFO)
-
-            logging.info(f"🟢 get_service_by_id chaqirildi. service_id = {service_id}")
-
-            cur.execute("SELECT id, name, price FROM services ORDER BY id ASC")
-            all_services = cur.fetchall()
-            logging.info(f"📋 Bazadagi barcha xizmatlar: {all_services}")
-
             cur.execute("SELECT id, name, price FROM services WHERE id = %s", (service_id,))
             row = cur.fetchone()
-            logging.info(f"🔍 Tanlangan xizmat: {row}")
 
     if not row:
-        logging.warning(f"⚠️ Xizmat topilmadi: service_id={service_id}")
         return None
 
     return {

@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from database import get_connection, add_doctor_service, get_doctor_id_by_telegram_id, get_service_by_id
+from database import get_connection, add_doctor_service, get_doctor_id_by_telegram_id, get_service_by_id, \
+    get_doctor_telegram_id
 
 SELECT_SERVICE_QUANTITY = 1
 EDIT_DOCTOR_NAME = range(1)
@@ -63,31 +64,28 @@ async def open_doctor_menu(update, context, doctor_id):
     else:
         await update.message.reply_text(message_text, reply_markup=markup)
 
-
 async def show_services_for_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id, name, price FROM services ORDER BY id ASC")
             services = cur.fetchall()
 
+    print("📋 SERVICES:", services)
+
     if not services:
-        await update.callback_query.edit_message_text("⚠️ Xizmatlar topilmadi.")
+        await query.edit_message_text("⚠️ Xizmatlar topilmadi.")
         return
 
-    keyboard = []
-    for service_id, name, price in services:
-        keyboard.append([
-            InlineKeyboardButton(
-                f"{name} — {price:.0f} so‘m",
-                callback_data=f"select_service_{service_id}"   # 👈 MUHIM
-            )
-        ])
+    keyboard = [
+        [InlineKeyboardButton(f"{name} — {price:.0f} so‘m", callback_data=f"select_service_{service_id}")]
+        for service_id, name, price in services
+    ]
 
     markup = InlineKeyboardMarkup(keyboard)
-    await update.callback_query.edit_message_text(
-        "🧾 Xizmat turini tanlang:",
-        reply_markup=markup
-    )
+    await query.edit_message_text("🧾 Xizmat turini tanlang:", reply_markup=markup)
 
 async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -100,46 +98,37 @@ async def edit_name_(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return EDIT_DOCTOR_NAME
 
 async def select_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("🟢 select_service CALLBACK ISHLADI")
     query = update.callback_query
     await query.answer()
 
     data = query.data
-    print("🟡 CALLBACK KELDI:", data)
+    print("📩 Callback keldi:", data)
 
     try:
         service_id = int(data.split("_")[-1])
     except (ValueError, IndexError):
-        print("⚠️ Xizmat ID ajratib bo‘lmadi!")
         await query.edit_message_text("⚠️ Xizmat ID topilmadi.")
         return ConversationHandler.END
 
-    print("🟢 Xizmat ID:", service_id)
-
+    # Xizmatni bazadan olish
     service = get_service_by_id(service_id)
-    print("🔵 get_service_by_id() natijasi:", service)
-
     if not service:
         await query.edit_message_text("⚠️ Xizmat topilmadi (bazadan hech narsa qaytmadi).")
         return ConversationHandler.END
 
-    name = service["name"]
-    price = float(service["price"])
-    print(f"✅ Xizmat topildi: {name} ({price} so‘m)")
-
-    # Context
-    context.user_data["selected_service_id"] = service_id
-    context.user_data["selected_service_name"] = name
-    context.user_data["selected_service_price"] = price
+    context.user_data["selected_service_id"] = service["id"]
+    context.user_data["selected_service_name"] = service["name"]
+    context.user_data["selected_service_price"] = float(service["price"])
 
     await query.edit_message_text(
-        text=f"📦 <b>{name}</b> uchun sonini kiriting:",
+        text=f"📦 <b>{service['name']}</b> uchun sonini kiriting:",
         parse_mode="HTML"
     )
 
     return SELECT_SERVICE_QUANTITY
 
 async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # 1️⃣ Miqdorni tekshiramiz
     try:
         quantity = int(update.message.text.strip())
         if quantity <= 0:
@@ -148,32 +137,24 @@ async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("❌ Iltimos, to‘g‘ri son kiriting (1 yoki undan katta).")
         return SELECT_SERVICE_QUANTITY
 
-    # 2️⃣ Contextdan ma'lumotlarni olamiz
     service_id = context.user_data.get("selected_service_id")
     name = context.user_data.get("selected_service_name")
     price = context.user_data.get("selected_service_price")
     doctor_id = context.user_data.get("doctor_id")
 
-    if not service_id or not name or price is None:
-        await update.message.reply_text("⚠️ Xizmat ma'lumotlari topilmadi. Qaytadan urinib ko‘ring.")
-        return ConversationHandler.END
-
     if not doctor_id:
         telegram_id = update.effective_user.id
         doctor_id = get_doctor_id_by_telegram_id(telegram_id)
         if not doctor_id:
-            await update.message.reply_text("❌ Doktor aniqlanmadi. Iltimos, admin bilan bog‘laning.")
+            await update.message.reply_text("❌ Doktor aniqlanmadi.")
             return ConversationHandler.END
         context.user_data["doctor_id"] = doctor_id
 
-    # 3️⃣ Bazaga yozamiz: doctor_services jadvaliga qo‘shamiz
     add_doctor_service(doctor_id, service_id, quantity)
-
     total = quantity * price
 
-    # 4️⃣ Javob + orqaga tugma
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔙 Doktor menyusiga qaytish", callback_data=f"doctor_{doctor_id}")]
+        [InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{doctor_id}")]
     ])
 
     await update.message.reply_text(
@@ -181,13 +162,24 @@ async def ask_service_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=keyboard
     )
 
-    # 5️⃣ Contextni tozalab qo‘yamiz
-    context.user_data.pop("selected_service_id", None)
-    context.user_data.pop("selected_service_name", None)
-    context.user_data.pop("selected_service_price", None)
+    # 🔔 Doktorga xabar yuborish
+    try:
+        doctor_telegram_id = get_doctor_telegram_id(doctor_id)
+        if doctor_telegram_id:
+            await context.bot.send_message(
+                chat_id=doctor_telegram_id,
+                text=(
+                    f"🧾 <b>Yangi xizmat qo‘shildi!</b>\n\n"
+                    f"🧑‍⚕️ {name}\n"
+                    f"📦 {quantity} dona × {price:.0f} = {total:.0f} so‘m"
+                ),
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        print(f"Xabar yuborishda xato: {e}")
 
+    context.user_data.clear()
     return ConversationHandler.END
-
 
 async def add_service_to_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

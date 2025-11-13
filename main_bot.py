@@ -559,16 +559,6 @@ async def main():
         fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
-    service_payment_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(select_service, pattern="^select_service_\\d+$")],
-        states={
-            SELECT_SERVICE_QUANTITY: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_service_quantity)
-            ]
-        },
-        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
-    )
-
     conv_payment = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(start_payment, pattern="^add_payment$"),
@@ -631,11 +621,12 @@ async def main():
     app.add_handler(conv_payment)
     app.add_handler(conv_report)
     app.add_handler(conv_edit_doctor_name)
-    app.add_handler(CallbackQueryHandler(select_service, pattern="^select_service_\\d+$"))
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
-    app.add_handler(CallbackQueryHandler(add_service_to_doctor, pattern="^add_service_to_doctor$"))
     app.add_handler(CallbackQueryHandler(my_profile, pattern="^my_profile$"))
     app.add_handler(report_handler)
+    app.add_handler(CallbackQueryHandler(show_services_for_payment, pattern="^add_service_to_doctor$"))
+    app.add_handler(CallbackQueryHandler(select_service, pattern="^select_service_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask_service_quantity))
     app.add_handler(CallbackQueryHandler(handle_menu_selection))
 
 
