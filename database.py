@@ -187,17 +187,25 @@ async def save_new_doctor_name(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("⚠️ Noma'lum xatolik yuz berdi.")
         return ConversationHandler.END
 
-    # Bazada yangilash
+    # 🛠 Bazada yangilash
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE doctors SET name = %s WHERE id = %s", (new_name, doctor_id))
             conn.commit()
-    keyboard = [
-        [InlineKeyboardButton("🔙 Orqaga", callback_data=f"open_doctor_{doctor_id}")]
-    ]
-    markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text("✅ Ism muvaffaqiyatli yangilandi.", reply_markup=markup)
+    # 🔙 Orqaga tugmasi
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{doctor_id}")]
+    ])
+
+    await update.message.reply_text(
+        text="✅ Ism muvaffaqiyatli yangilandi.",
+        reply_markup=keyboard
+    )
+
+    # 🧹 Contextni tozalash
+    context.user_data.pop("edit_doctor_id", None)
+
     return ConversationHandler.END
 
 
