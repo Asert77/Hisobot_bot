@@ -87,59 +87,58 @@ def create_tables():
     cur.close()
     conn.close()
 
+from collections import defaultdict
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
 async def my_profile(update, context):
     query = update.callback_query
     telegram_id = query.from_user.id
 
-    # 1. Doctor ID ni telegram_id orqali topamiz
+    # 1️⃣ Doctor ID ni telegram_id orqali topamiz
     doctor_id = get_doctor_id_by_telegram_id(telegram_id)
     if not doctor_id:
         await query.edit_message_text("⚠️ Siz ro‘yxatdan o‘tmagansiz.")
         return
 
-    # 2. Ma'lumotlarni doctor_id bo‘yicha olamiz
+    # 2️⃣ Bazadan ma'lumotlarni olamiz
     services = get_services_summary_by_doctor(doctor_id)
     payments = get_payments_by_doctor(doctor_id)
 
-    # 3. Xizmatlarni guruhlash
-    from collections import defaultdict
+    # 3️⃣ Xizmatlarni guruhlab hisoblaymiz
     service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
     for name, price, quantity, *_ in services:
         if price == 0 or quantity == 0:
             continue
         service_summary[name]["quantity"] += quantity
-        service_summary[name]["price"] = price
+        service_summary[name]["price"] = float(price)
 
     service_lines = []
-    total_expected = 0
+    total_expected = 0.0
     total_service_count = 0
     for name, data in service_summary.items():
         q = data["quantity"]
-        p = data["price"]
+        p = float(data["price"])
         total = q * p
         total_expected += total
         total_service_count += q
-        service_lines.append(f"{name} — {q} ta × {p:.0f} = {total:.0f} so‘m")
+        service_lines.append(f"{name} — {q} ta × {p:,.0f} = {total:,.0f} so‘m")
 
     services_text = "\n".join(service_lines) if service_lines else "Hali xizmatlar yo‘q."
 
-    # 4. To‘lovlar
-    total_paid = 0
+    # 4️⃣ To‘lovlarni hisoblaymiz
+    total_paid = 0.0
     payment_lines = []
     for amount, created_at in payments:
         total_paid += float(amount)
-        if hasattr(created_at, "strftime"):
-            date_str = created_at.strftime("%Y-%m-%d %H:%M")
-        else:
-            date_str = str(created_at)
+        date_str = created_at.strftime("%Y-%m-%d %H:%M") if hasattr(created_at, "strftime") else str(created_at)
         payment_lines.append(f"{date_str} — {float(amount):,.0f} so‘m")
 
     payments_text = "\n".join(payment_lines) if payment_lines else "To‘lovlar yo‘q."
 
-    # 5. Qarzdorlik
-    debt = max(total_expected - total_paid, 0)
+    # 5️⃣ Qarzdorlik
+    debt = max(float(total_expected) - float(total_paid), 0.0)
 
-    # 6. Natija
+    # 6️⃣ Natijaviy matn
     text = (
         "<b>🧾 Profilingiz</b>\n\n"
         "<b>Xizmatlaringiz:</b>\n"
@@ -151,6 +150,7 @@ async def my_profile(update, context):
         f"<b>To‘langan:</b> {total_paid:,.0f} so‘m\n"
         f"<b>Qarzdorlik:</b> {debt:,.0f} so‘m"
     )
+
     await query.edit_message_text(text=text, parse_mode="HTML")
 
 def add_doctor(name: str, phone: str, telegram_id: int):
