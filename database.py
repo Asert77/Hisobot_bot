@@ -139,7 +139,6 @@ def my_profile(update, context):
     service_count = len(services)
     total_services_price = float(total_expected)
 
-    # 📋 Yakuniy matn
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
         f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
