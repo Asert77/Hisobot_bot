@@ -135,7 +135,6 @@ def my_profile(update, context):
     else:
         payments_text = "Hech qanday to‘lov yo‘q."
 
-    # 🧾 Xizmatlar
     service_count = len(services)
     total_services_price = float(total_expected)
 
