@@ -56,7 +56,6 @@ def generate_report_pdf(doctor_name, services, payments, output_path):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(8)
 
-    # 📊 Hisobot yakuni
     debt = max(total_expected - total_paid, 0)
 
     pdf.set_font("Arial", 'B', 12)
