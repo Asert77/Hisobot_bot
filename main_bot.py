@@ -145,7 +145,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
         payments = get_payments_by_doctor(doctor_id)
         services = get_services_by_doctor(doctor_id)
-        total_paid = sum(float(amount) for amount, _, _ in payments)
+        total_paid = sum(float(amount) for amount, _ in payments)
         total_expected = get_expected_total_by_doctor(doctor_id)
         debt = total_expected - total_paid
 
