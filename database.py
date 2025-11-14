@@ -129,7 +129,7 @@ async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     services_text = "\n".join(service_lines) if service_lines else "🚫 Hali xizmatlar yo‘q."
 
-    total_paid = sum(float(amount) for amount, _, _ in payments)
+    total_paid = sum(float(amount) for amount, _ in payments)
     payment_lines = [f"• {date} — {float(amount):.0f} so‘m" for amount, _, date in payments]
     payments_text = "\n".join(payment_lines) if payment_lines else "🚫 To‘lovlar yo‘q."
 
