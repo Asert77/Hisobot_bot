@@ -16,7 +16,6 @@ def generate_report_pdf(doctor_name, services, payments, output_path):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(8)
 
-    # 💰 To‘lovlar bo‘limi
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 8, "■ To‘lovlar:", ln=True)
     pdf.set_font("Arial", '', 11)
