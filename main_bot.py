@@ -7,7 +7,6 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ConversationHandler, ContextTypes, filters
 )
-
 from database import (
     create_tables, add_doctor, get_all_doctors, add_service,
     add_payment, get_payments_by_doctor, get_services_by_doctor,

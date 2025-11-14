@@ -1,7 +1,8 @@
 from fpdf import FPDF
 import os
 from datetime import datetime
-
+import pytz
+UZBEK_TZ = pytz.timezone("Asia/Tashkent")
 
 def safe_text(text):
     """Unicode tutuq va belgilarni PDF uchun xavfsiz formatga o‘tkazadi."""

@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta
-from collections import defaultdict
-from datetime import datetime, timedelta
-from decimal import Decimal
-
 import psycopg2
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, ConversationHandler
-
+import pytz
 from dotenv import load_dotenv
 import os
+from datetime import datetime
+
 
 load_dotenv()  # .env faylni yuklaydi
 
@@ -87,71 +85,65 @@ def create_tables():
     cur.close()
     conn.close()
 
-from collections import defaultdict
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-
-async def my_profile(update, context):
+def my_profile(update, context):
     query = update.callback_query
-    telegram_id = query.from_user.id
+    user = update.effective_user
+    telegram_id = user.id
 
-    # 1️⃣ Doctor ID ni telegram_id orqali topamiz
-    doctor_id = get_doctor_id_by_telegram_id(telegram_id)
-    if not doctor_id:
-        await query.edit_message_text("⚠️ Siz ro‘yxatdan o‘tmagansiz.")
-        return
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
 
-    # 2️⃣ Bazadan ma'lumotlarni olamiz
-    services = get_services_summary_by_doctor(doctor_id)
+    # 🩺 Doktor ma'lumotlarini olish
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name, phone FROM doctors WHERE telegram_id = %s", (telegram_id,))
+            doctor = cur.fetchone()
+
+    if not doctor:
+        return query.edit_message_text("❌ Siz ro‘yxatdan o‘tmagansiz. Iltimos, administrator bilan bog‘laning.")
+
+    doctor_id, doctor_name, phone = doctor
+
+    # 💰 To‘lovlar
     payments = get_payments_by_doctor(doctor_id)
+    services = get_services_by_doctor(doctor_id)
 
-    # 3️⃣ Xizmatlarni guruhlab hisoblaymiz
-    service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
-    for name, price, quantity, *_ in services:
-        if price == 0 or quantity == 0:
-            continue
-        service_summary[name]["quantity"] += quantity
-        service_summary[name]["price"] = float(price)
+    total_paid = sum(float(amount) for amount, _ in payments)
+    total_expected = get_expected_total_by_doctor(doctor_id)
+    debt = max(total_expected - total_paid, 0)
 
-    service_lines = []
-    total_expected = 0.0
-    total_service_count = 0
-    for name, data in service_summary.items():
-        q = data["quantity"]
-        p = float(data["price"])
-        total = q * p
-        total_expected += total
-        total_service_count += q
-        service_lines.append(f"{name} — {q} ta × {p:,.0f} = {total:,.0f} so‘m")
+    if payments:
+        payment_lines = []
+        for amount, created_at in payments:
+            if hasattr(created_at, "astimezone"):
+                local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            else:
+                local_time = str(created_at)
+            payment_lines.append(f"{local_time} — {float(amount):,.0f} so‘m")
+        payments_text = "\n".join(payment_lines)
+    else:
+        payments_text = "Hech qanday to‘lov yo‘q."
 
-    services_text = "\n".join(service_lines) if service_lines else "Hali xizmatlar yo‘q."
+    # 🧾 Xizmatlar soni
+    service_count = len(services)
+    total_services_price = float(total_expected)
 
-    # 4️⃣ To‘lovlarni hisoblaymiz
-    total_paid = 0.0
-    payment_lines = []
-    for amount, created_at in payments:
-        total_paid += float(amount)
-        date_str = created_at.strftime("%Y-%m-%d %H:%M") if hasattr(created_at, "strftime") else str(created_at)
-        payment_lines.append(f"{date_str} — {float(amount):,.0f} so‘m")
-
-    payments_text = "\n".join(payment_lines) if payment_lines else "To‘lovlar yo‘q."
-
-    # 5️⃣ Qarzdorlik
-    debt = max(float(total_expected) - float(total_paid), 0.0)
-
-    # 6️⃣ Natijaviy matn
+    # 📋 Yakuniy matn
     text = (
-        "<b>🧾 Profilingiz</b>\n\n"
-        "<b>Xizmatlaringiz:</b>\n"
-        f"{services_text}\n\n"
-        f"<b>Umumiy xizmatlar soni:</b> {total_service_count} ta\n"
-        f"<b>Umumiy qiymat:</b> {total_expected:,.0f} so‘m\n\n"
-        "<b>To‘lovlar:</b>\n"
-        f"{payments_text}\n\n"
-        f"<b>To‘langan:</b> {total_paid:,.0f} so‘m\n"
-        f"<b>Qarzdorlik:</b> {debt:,.0f} so‘m"
+        f"<b>👤 Doktor:</b> {doctor_name}\n"
+        f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
+        f"<b>💰 To‘langan jami:</b> {total_paid:,.0f} so‘m\n"
+        f"<b>🧾 Umumiy xizmatlar:</b> {total_services_price:,.0f} so‘m\n"
+        f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so‘m\n"
+        f"<b>🔢 Umumiy xizmatlar soni:</b> {service_count} ta\n\n"
+        f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}"
     )
 
-    await query.edit_message_text(text=text, parse_mode="HTML")
+    # 🔙 Orqaga tugmasi
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Asosiy menyu", callback_data="main_menu")]
+    ])
+
+    query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:
@@ -382,15 +374,21 @@ def get_service_by_id(service_id):
         "price": float(row[2]),
     }
 
-def add_payment(service_id, amount, doctor_id, service_name=None):
+def add_payment(service_id, amount, doctor_id, service_name=None, created_at=None):
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
+    now = datetime.now(uzbek_tz)
+    created_time = created_at or now
+
     if not service_id:
-        service_name = None  # ❗ xizmat yo'q bo'lsa, nomini ham saqlamaymiz
+        service_name = None
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO payments (service_id, amount, doctor_id, service_name)
-                VALUES (%s, %s, %s, %s)
-            """, (service_id, amount, doctor_id, service_name))
+                INSERT INTO payments (service_id, amount, doctor_id, service_name, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (service_id, amount, doctor_id, service_name, created_time))
+        conn.commit()
+
 
 def get_payments_by_doctor(doctor_id):
     with get_connection() as conn:
@@ -404,6 +402,8 @@ def get_payments_by_doctor(doctor_id):
             return cur.fetchall()
 
 def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
+    now = datetime.now(uzbek_tz)
     conn = get_connection()
     cur = conn.cursor()
     if created_at:
@@ -413,9 +413,10 @@ def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
         """, (doctor_id, service_id, quantity, created_at))
     else:
         cur.execute("""
-            INSERT INTO doctor_services (doctor_id, service_id, quantity)
-            VALUES (%s, %s, %s)
-        """, (doctor_id, service_id, quantity))
+            INSERT INTO doctor_services (doctor_id, service_id, quantity, created_at)
+            VALUES (%s, %s, %s, %s)
+        """, (doctor_id, service_id, quantity, now))
+
     conn.commit()
     cur.close()
     conn.close()
