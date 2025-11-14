@@ -390,22 +390,25 @@ def add_payment(service_id, amount, doctor_id, service_name=None):
                 VALUES (%s, %s, %s, %s)
             """, (service_id, amount, doctor_id, service_name))
 
-def get_payments_by_doctor(doctor_id, start_date=None, end_date=None):
+def get_payments_by_doctor(doctor_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            if start_date and end_date:
-                cur.execute("""
-                    SELECT amount, service_name, created_at
-                    FROM payments
-                    WHERE doctor_id = %s AND created_at BETWEEN %s AND %s
-                """, (doctor_id, start_date, end_date))
-            else:
-                cur.execute("""
-                    SELECT amount, service_name, created_at
-                    FROM payments
-                    WHERE doctor_id = %s
-                """, (doctor_id,))
-            return cur.fetchall()
+            cur.execute("""
+                SELECT amount, created_at, comment
+                FROM payments
+                WHERE doctor_id = %s
+                ORDER BY created_at ASC
+            """, (doctor_id,))
+            rows = cur.fetchall()
+
+    results = []
+    for amount, created_at, comment in rows:
+        results.append((
+            float(amount),
+            created_at,
+            comment
+        ))
+    return results
 
 def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
     conn = get_connection()
@@ -424,28 +427,27 @@ def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
     cur.close()
     conn.close()
 
-def get_services_summary_by_doctor(doctor_id, start_date=None, end_date=None):
+def get_services_summary_by_doctor(doctor_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            if start_date and end_date:
-                cur.execute("""
-                    SELECT s.name, SUM(ds.quantity), s.price, MAX(ds.created_at)
-                    FROM doctor_services ds
-                    JOIN services s ON ds.service_id = s.id
-                    WHERE ds.doctor_id = %s AND ds.created_at BETWEEN %s AND %s
-                    GROUP BY s.name, s.price
-                    ORDER BY MAX(ds.created_at) DESC
-                """, (doctor_id, start_date, end_date))
-            else:
-                cur.execute("""
-                    SELECT s.name, SUM(ds.quantity), s.price, MAX(ds.created_at)
-                    FROM doctor_services ds
-                    JOIN services s ON ds.service_id = s.id
-                    WHERE ds.doctor_id = %s
-                    GROUP BY s.name, s.price
-                    ORDER BY MAX(ds.created_at) DESC
-                """, (doctor_id,))
-            return cur.fetchall()
+            cur.execute("""
+                SELECT s.name, s.price, ds.quantity, ds.created_at
+                FROM doctor_services ds
+                JOIN services s ON ds.service_id = s.id
+                WHERE ds.doctor_id = %s
+                ORDER BY ds.created_at ASC
+            """, (doctor_id,))
+            rows = cur.fetchall()
+
+    results = []
+    for name, price, quantity, created_at in rows:
+        results.append((
+            name,
+            float(price),
+            int(quantity),
+            created_at  # bu datetime obyekt
+        ))
+    return results
 
 
 def get_doctor_telegram_id(doctor_id):
