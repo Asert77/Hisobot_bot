@@ -28,7 +28,7 @@ async def open_doctor_menu(update, context, doctor_id):
     services = get_services_summary_by_doctor(doctor_id)
     total_expected = get_expected_total_by_doctor(doctor_id)
     payments = get_payments_by_doctor(doctor_id)
-    total_paid = sum(float(amount) for amount, _, _ in payments)
+    total_paid = sum(float(amount) for amount, _ in payments)
 
     debt = max(total_expected - total_paid, 0)
 
