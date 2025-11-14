@@ -153,13 +153,13 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         services_summary = get_services_summary_by_doctor(doctor_id)
         # PDF hisobot yaratish
         filepath = generate_pdf_report(
-            doctor_name,
-            payments,
-            total_paid,
-            total_expected,
-            debt,
-            services_summary
-        )
+    doctor_name,      # 1
+    doctor_id,        # 2
+    payments,         # 3
+    total_expected,   # 4
+    total_paid,       # 5
+    services_summary  # 6
+)
         with open(filepath, "rb") as f:
             await query.message.reply_document(
                 document=f,
