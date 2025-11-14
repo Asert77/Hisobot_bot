@@ -87,17 +87,21 @@ def create_tables():
     cur.close()
     conn.close()
 
-
-
 async def my_profile(update, context):
     query = update.callback_query
     telegram_id = query.from_user.id
 
-    # 1. Xizmatlar va to‘lovlar ma'lumotlarini olish
-    services = get_services_summary_by_doctor(telegram_id)
-    payments = get_payments_by_doctor(telegram_id)
+    # 1. Doctor ID ni telegram_id orqali topamiz
+    doctor_id = get_doctor_id_by_telegram_id(telegram_id)
+    if not doctor_id:
+        await query.edit_message_text("⚠️ Siz ro‘yxatdan o‘tmagansiz.")
+        return
 
-    # 2. Xizmatlarni guruhlash
+    # 2. Ma'lumotlarni doctor_id bo‘yicha olamiz
+    services = get_services_summary_by_doctor(doctor_id)
+    payments = get_payments_by_doctor(doctor_id)
+
+    # 3. Xizmatlarni guruhlash
     from collections import defaultdict
     service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
     for name, price, quantity, *_ in services:
@@ -108,16 +112,18 @@ async def my_profile(update, context):
 
     service_lines = []
     total_expected = 0
+    total_service_count = 0
     for name, data in service_summary.items():
         q = data["quantity"]
         p = data["price"]
         total = q * p
         total_expected += total
+        total_service_count += q
         service_lines.append(f"{name} — {q} ta × {p:.0f} = {total:.0f} so‘m")
 
     services_text = "\n".join(service_lines) if service_lines else "Hali xizmatlar yo‘q."
 
-    # 3. To‘lovlar (2ta qiymatga moslashtiramiz)
+    # 4. To‘lovlar
     total_paid = 0
     payment_lines = []
     for amount, created_at in payments:
@@ -130,19 +136,21 @@ async def my_profile(update, context):
 
     payments_text = "\n".join(payment_lines) if payment_lines else "To‘lovlar yo‘q."
 
-    # 4. Qarzdorlik
+    # 5. Qarzdorlik
     debt = max(total_expected - total_paid, 0)
 
-    # 5. Matnni yig‘ish
+    # 6. Natija
     text = (
-        "<b>Profilingiz</b>\n\n"
+        "<b>🧾 Profilingiz</b>\n\n"
         "<b>Xizmatlaringiz:</b>\n"
         f"{services_text}\n\n"
+        f"<b>Umumiy xizmatlar soni:</b> {total_service_count} ta\n"
+        f"<b>Umumiy qiymat:</b> {total_expected:,.0f} so‘m\n\n"
         "<b>To‘lovlar:</b>\n"
         f"{payments_text}\n\n"
+        f"<b>To‘langan:</b> {total_paid:,.0f} so‘m\n"
         f"<b>Qarzdorlik:</b> {debt:,.0f} so‘m"
     )
-
     await query.edit_message_text(text=text, parse_mode="HTML")
 
 def add_doctor(name: str, phone: str, telegram_id: int):
