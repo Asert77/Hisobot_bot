@@ -89,5 +89,3 @@ def generate_pdf_report(doctor_name, doctor_id, payments, total_expected, total_
     filepath = os.path.join("/app", filename)
     pdf.output(filepath)
     return filepath
-
-

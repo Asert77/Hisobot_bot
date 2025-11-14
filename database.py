@@ -398,15 +398,7 @@ def get_payments_by_doctor(doctor_id):
                 WHERE doctor_id = %s
                 ORDER BY created_at ASC
             """, (doctor_id,))
-            rows = cur.fetchall()
-
-    results = []
-    for amount, created_at in rows:
-        results.append((
-            float(amount),
-            created_at
-        ))
-    return results
+            return cur.fetchall()
 
 def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
     conn = get_connection()
@@ -431,21 +423,11 @@ def get_services_summary_by_doctor(doctor_id):
             cur.execute("""
                 SELECT s.name, s.price, ds.quantity, ds.created_at
                 FROM doctor_services ds
-                JOIN services s ON ds.service_id = s.id
+                JOIN services s ON s.id = ds.service_id
                 WHERE ds.doctor_id = %s
                 ORDER BY ds.created_at ASC
             """, (doctor_id,))
-            rows = cur.fetchall()
-
-    results = []
-    for name, price, quantity, created_at in rows:
-        results.append((
-            name,
-            float(price),
-            int(quantity),
-            created_at  # bu datetime obyekt
-        ))
-    return results
+            return cur.fetchall()
 
 
 def get_doctor_telegram_id(doctor_id):
