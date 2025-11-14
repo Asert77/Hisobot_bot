@@ -89,66 +89,61 @@ def create_tables():
 
 
 
-async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def my_profile(update, context):
     query = update.callback_query
     telegram_id = query.from_user.id
 
-    # 🧩 1. Doktor ID ni olish
-    doctor_id = get_doctor_id_by_telegram_id(telegram_id)
-    if not doctor_id:
-        await query.edit_message_text("⚠️ Siz ro‘yxatda yo‘qsiz.")
-        return
+    # 1. Xizmatlar va to‘lovlar ma'lumotlarini olish
+    services = get_services_summary_by_doctor(telegram_id)
+    payments = get_payments_by_doctor(telegram_id)
 
-    # 🧾 2. Ma’lumotlarni olish
-    services = get_services_summary_by_doctor(doctor_id)
-    payments = get_payments_by_doctor(doctor_id)
-
-    # 🛠 3. Xizmatlarni guruhlash
-    service_summary = defaultdict(lambda: {"quantity": 0, "price": 0.0})
+    # 2. Xizmatlarni guruhlash
+    from collections import defaultdict
+    service_summary = defaultdict(lambda: {"quantity": 0, "price": 0})
     for name, price, quantity, *_ in services:
-        # Decimal → float
-        price = float(price) if isinstance(price, Decimal) else price
-        quantity = float(quantity) if isinstance(quantity, Decimal) else quantity
-
         if price == 0 or quantity == 0:
             continue
-
         service_summary[name]["quantity"] += quantity
         service_summary[name]["price"] = price
 
-
     service_lines = []
-    total_expected = 0.0
-
+    total_expected = 0
     for name, data in service_summary.items():
-        q = int(data["quantity"])
-        p = float(data["price"])
+        q = data["quantity"]
+        p = data["price"]
         total = q * p
         total_expected += total
-        service_lines.append(f"• {name} — {q} ta × {p:.0f} = {total:.0f} so‘m")
+        service_lines.append(f"{name} — {q} ta × {p:.0f} = {total:.0f} so‘m")
 
-    services_text = "\n".join(service_lines) if service_lines else "🚫 Hali xizmatlar yo‘q."
+    services_text = "\n".join(service_lines) if service_lines else "Hali xizmatlar yo‘q."
 
-    total_paid = sum(float(amount) for amount, _ in payments)
-    payment_lines = [f"• {date} — {float(amount):.0f} so‘m" for amount, _, date in payments]
-    payments_text = "\n".join(payment_lines) if payment_lines else "🚫 To‘lovlar yo‘q."
+    # 3. To‘lovlar (2ta qiymatga moslashtiramiz)
+    total_paid = 0
+    payment_lines = []
+    for amount, created_at in payments:
+        total_paid += float(amount)
+        if hasattr(created_at, "strftime"):
+            date_str = created_at.strftime("%Y-%m-%d %H:%M")
+        else:
+            date_str = str(created_at)
+        payment_lines.append(f"{date_str} — {float(amount):,.0f} so‘m")
 
-    debt = max(float(total_expected) - float(total_paid), 0)
+    payments_text = "\n".join(payment_lines) if payment_lines else "To‘lovlar yo‘q."
 
+    # 4. Qarzdorlik
+    debt = max(total_expected - total_paid, 0)
+
+    # 5. Matnni yig‘ish
     text = (
-        "🧾 <b>Profilingiz</b>\n\n"
-        "🛠 <b>Xizmatlaringiz:</b>\n"
+        "<b>Profilingiz</b>\n\n"
+        "<b>Xizmatlaringiz:</b>\n"
         f"{services_text}\n\n"
-        "💰 <b>So‘nggi to‘lovlar:</b>\n"
+        "<b>To‘lovlar:</b>\n"
         f"{payments_text}\n\n"
-        f"❌ <b>Qarzdorlik:</b> {debt:.0f} so‘m"
+        f"<b>Qarzdorlik:</b> {debt:,.0f} so‘m"
     )
 
-    await query.edit_message_text(
-        text=text,
-        parse_mode="HTML",
-    )
-
+    await query.edit_message_text(text=text, parse_mode="HTML")
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:

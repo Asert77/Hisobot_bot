@@ -48,9 +48,13 @@ def generate_pdf_report(doctor_name, doctor_id, payments, total_expected, total_
     pdf.cell(40, 8, safe_text("Jami (so‘m)"), border=1)
     pdf.cell(50, 8, safe_text("Sana va vaqt"), border=1, ln=True)
 
+    total_service_count = 0  # Umumiy xizmatlar soni
+
     for name, price, quantity, created_at in services_summary:
         total = price * quantity
+        total_service_count += quantity
         date_str = created_at.strftime("%Y-%m-%d %H:%M") if isinstance(created_at, datetime) else str(created_at)
+
         pdf.cell(60, 8, safe_text(str(name)), border=1)
         pdf.cell(25, 8, str(quantity), border=1)
         pdf.cell(40, 8, f"{total:,.0f}", border=1)
@@ -81,6 +85,7 @@ def generate_pdf_report(doctor_name, doctor_id, payments, total_expected, total_
     pdf.cell(0, 8, safe_text(f"Umumiy xizmatlar: {total_expected:,.0f} so‘m"), ln=True)
     pdf.cell(0, 8, safe_text(f"To‘langan: {total_paid:,.0f} so‘m"), ln=True)
     pdf.cell(0, 8, safe_text(f"Qarzdorlik: {debt:,.0f} so‘m"), ln=True)
+    pdf.cell(0, 8, safe_text(f"Umumiy xizmatlar soni: {total_service_count} ta"), ln=True)
 
     # --- PDF saqlash ---
     filename = f"doctor_report_{doctor_id}.pdf"
