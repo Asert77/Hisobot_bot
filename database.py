@@ -394,7 +394,7 @@ def get_payments_by_doctor(doctor_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT amount, created_at, comment
+                SELECT amount, created_at
                 FROM payments
                 WHERE doctor_id = %s
                 ORDER BY created_at ASC
@@ -402,11 +402,10 @@ def get_payments_by_doctor(doctor_id):
             rows = cur.fetchall()
 
     results = []
-    for amount, created_at, comment in rows:
+    for amount, created_at in rows:
         results.append((
             float(amount),
-            created_at,
-            comment
+            created_at
         ))
     return results
 
