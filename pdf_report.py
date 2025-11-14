@@ -1,7 +1,7 @@
 from fpdf import FPDF
 from datetime import datetime
 
-def generate_report_pdf(doctor_name, services, payments, output_path):
+def generate_pdf_report(doctor_name, services, payments, output_path):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
