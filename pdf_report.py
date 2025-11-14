@@ -1,57 +1,70 @@
-import os
-from xhtml2pdf import pisa
+from fpdf import FPDF
 from datetime import datetime
 
-def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt, services_summary):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+def generate_report_pdf(doctor_name, services, payments, output_path):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
 
-    # To‘lovlar qismi
-    report_lines = []
-    for amount, date, service_name in payments:
-        report_lines.append(f"{amount:.0f} so‘m ({service_name}) — {date}")
-    rows_html = "<br>".join(report_lines)
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, f"Hisobot: Dr. {doctor_name}", ln=True)
 
-    # Xizmatlar qismi (vaqti bilan)
-    service_lines = []
-    for name, price, quantity, created_at in services_summary:
-        date_str = created_at.strftime("%Y-%m-%d %H:%M")
-        service_lines.append(f"{name} — {quantity} ta × {price:.0f} so‘m ({date_str})")
-    services_html = "<br>".join(service_lines)
+    pdf.set_font("Arial", '', 12)
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    pdf.cell(0, 10, f"Yaratilgan: {created_at}", ln=True)
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(8)
 
-    html = f"""
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: DejaVu Sans, sans-serif; }}
-            h1 {{ color: #333; }}
-            p {{ margin: 6px 0; }}
-        </style>
-    </head>
-    <body>
-        <h1>Hisobot: Dr. {doctor_name}</h1>
-        <p>Yaratilgan: {now}</p>
-        <hr/>
-        <p><strong>▪ To‘lovlar:</strong></p>
-        {rows_html}
-        <hr/>
-        <p><strong>▪ Xizmatlar:</strong></p>
-        {services_html}
-        <hr/>
-        <p><strong>To‘langan jami:</strong> {total_paid:.0f} so‘m</p>
-        <p><strong>To‘lanishi kerak:</strong> {total_expected:.0f} so‘m</p>
-        <p><strong>Qarzdorlik:</strong> {debt:.0f} so‘m</p>
-    </body>
-    </html>
-    """
+    # 💰 To‘lovlar bo‘limi
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 8, "■ To‘lovlar:", ln=True)
+    pdf.set_font("Arial", '', 11)
 
-    filename = f"hisobot_{doctor_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    os.makedirs("reports", exist_ok=True)
-    filepath = os.path.join("reports", filename)
+    total_paid = 0
+    if payments:
+        for amount, date, _ in payments:
+            date_str = date.strftime("%Y-%m-%d %H:%M") if date else "—"
+            pdf.cell(0, 8, f"{amount:.0f} so‘m ({date_str})", ln=True)
+            total_paid += float(amount)
+    else:
+        pdf.cell(0, 8, "To‘lovlar yo‘q.", ln=True)
 
-    with open(filepath, "wb") as f:
-        pisa.CreatePDF(html, dest=f)
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(8)
 
-    return filepath
+    # 🧾 Xizmatlar bo‘limi
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 8, "■ Xizmatlar:", ln=True)
+    pdf.set_font("Arial", '', 11)
+
+    total_expected = 0
+    if services:
+        for name, price, quantity, created_at in services:
+            date_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "—"
+            total = float(price) * int(quantity)
+            total_expected += total
+            pdf.cell(
+                0, 8,
+                f"{name} — {quantity} ta × {float(price):,.0f} so‘m = {total:,.0f} so‘m ({date_str})",
+                ln=True
+            )
+    else:
+        pdf.cell(0, 8, "Xizmatlar yo‘q.", ln=True)
+
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(8)
+
+    # 📊 Hisobot yakuni
+    debt = max(total_expected - total_paid, 0)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 8, f"To‘langan jami: {total_paid:,.0f} so‘m", ln=True)
+    pdf.cell(0, 8, f"To‘lanishi kerak: {total_expected:,.0f} so‘m", ln=True)
+    pdf.cell(0, 8, f"Qarzdorlik: {debt:,.0f} so‘m", ln=True)
+
+    pdf.output(output_path)
 
 
