@@ -315,26 +315,36 @@ async def confirm_close_debt(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.edit_message_text("✅ Qarzdorlik to‘liq yopildi. Barcha ma'lumotlar o‘chirildi.")
     return ConversationHandler.END
 
-def get_services_by_doctor(doctor_id, start_date=None, end_date=None):
+def get_services_by_doctor(doctor_id):
+
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
-            if start_date and end_date:
-                cur.execute("""
-                    SELECT s.name, ds.quantity, s.price, ds.created_at
-                    FROM doctor_services ds
-                    JOIN services s ON ds.service_id = s.id
-                    WHERE ds.doctor_id = %s AND ds.created_at BETWEEN %s AND %s
-                """, (doctor_id, start_date, end_date))
-            else:
-                cur.execute("""
-                    SELECT s.name, ds.quantity, s.price, ds.created_at
-                    FROM doctor_services ds
-                    JOIN services s ON ds.service_id = s.id
-                    WHERE ds.doctor_id = %s
-                """, (doctor_id,))
-            return cur.fetchall()
+            cur.execute("""
+                SELECT s.name, ds.quantity, s.price, ds.created_at
+                FROM doctor_services ds
+                JOIN services s ON ds.service_id = s.id
+                WHERE ds.doctor_id = %s
+                ORDER BY ds.created_at DESC
+            """, (doctor_id,))
+            rows = cur.fetchall()
 
+    services = []
+    for name, quantity, price, created_at in rows:
+        if created_at is not None:
+            if created_at.tzinfo is None:
+                created_at = pytz.utc.localize(created_at)
+            created_at = created_at.astimezone(uzbek_tz)
 
+        services.append({
+            "name": name,
+            "quantity": int(quantity),
+            "price": float(price),
+            "created_at": created_at
+        })
+
+    return services
 
 def get_doctor_id_by_telegram_id(telegram_id):
     with get_connection() as conn:
@@ -392,17 +402,28 @@ def add_payment(service_id, amount, doctor_id, service_name=None, created_at=Non
             """, (service_id, amount, doctor_id, service_name, created_at or now))
         conn.commit()
 
-
 def get_payments_by_doctor(doctor_id):
+
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT amount, created_at
                 FROM payments
                 WHERE doctor_id = %s
-                ORDER BY created_at ASC
+                ORDER BY created_at DESC
             """, (doctor_id,))
-            return cur.fetchall()
+            rows = cur.fetchall()
+    payments = []
+    for amount, created_at in rows:
+        if created_at is not None:
+            if created_at.tzinfo is None:
+                created_at = pytz.utc.localize(created_at)
+            created_at = created_at.astimezone(uzbek_tz)
+        payments.append((float(amount), created_at))
+
+    return payments
 
 def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
     conn = get_connection()
