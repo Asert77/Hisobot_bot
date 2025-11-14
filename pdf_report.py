@@ -1,5 +1,4 @@
 from fpdf import FPDF
-import os
 from datetime import datetime
 import pytz
 UZBEK_TZ = pytz.timezone("Asia/Tashkent")
@@ -29,67 +28,67 @@ class PDF(FPDF):
         self.cell(0, 10, f"Sahifa {self.page_no()}", align="C")
 
 
-def generate_pdf_report(doctor_name, doctor_id, payments, total_expected, total_paid, services_summary):
-    pdf = PDF()
+def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt, services_summary):
+    pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", "", 12)
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(200, 10, txt="Doktor bo'yicha hisobot", ln=True, align="C")
 
-    # --- Doktor haqida ma'lumot ---
-    pdf.cell(0, 10, safe_text(f"Doktor: {doctor_name} (ID: {doctor_id})"), ln=True)
-    pdf.cell(0, 10, f"Sana: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt=f"Doktor: {doctor_name}", ln=True)
+    pdf.cell(200, 10, txt=f"Sana: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
     pdf.ln(5)
 
-    # --- Xizmatlar jadvali ---
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
+
+    # --- Xizmatlar bo‘limi ---
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, safe_text("Xizmatlar:"), ln=True)
-    pdf.set_font("Arial", "", 11)
+    pdf.cell(200, 8, txt="Xizmatlar:", ln=True)
+    pdf.set_font("Arial", size=11)
+    pdf.cell(60, 8, "Xizmat nomi", border=1)
+    pdf.cell(20, 8, "Soni", border=1)
+    pdf.cell(40, 8, "Jami (so'm)", border=1)
+    pdf.cell(60, 8, "Sana va vaqt", border=1, ln=True)
 
-    pdf.cell(60, 8, safe_text("Xizmat nomi"), border=1)
-    pdf.cell(25, 8, safe_text("Soni"), border=1)
-    pdf.cell(40, 8, safe_text("Jami (so‘m)"), border=1)
-    pdf.cell(50, 8, safe_text("Sana va vaqt"), border=1, ln=True)
-
-    total_service_count = 0  # Umumiy xizmatlar soni
-
-    for name, price, quantity, created_at in services_summary:
-        total = price * quantity
-        total_service_count += quantity
-        date_str = created_at.strftime("%Y-%m-%d %H:%M") if isinstance(created_at, datetime) else str(created_at)
-
-        pdf.cell(60, 8, safe_text(str(name)), border=1)
-        pdf.cell(25, 8, str(quantity), border=1)
+    for name, qty, total, created_at in services_summary:
+        local_time = (
+            created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            if created_at else "-"
+        )
+        pdf.cell(60, 8, str(name), border=1)
+        pdf.cell(20, 8, str(qty), border=1)
         pdf.cell(40, 8, f"{total:,.0f}", border=1)
-        pdf.cell(50, 8, date_str, border=1, ln=True)
+        pdf.cell(60, 8, local_time, border=1, ln=True)
 
     pdf.ln(10)
 
-    # --- To‘lovlar jadvali ---
+    # --- To‘lovlar bo‘limi ---
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, safe_text("To‘lovlar:"), ln=True)
-    pdf.set_font("Arial", "", 11)
+    pdf.cell(200, 8, txt="To'lovlar:", ln=True)
+    pdf.set_font("Arial", size=11)
+    pdf.cell(40, 8, "Miqdori (so'm)", border=1)
+    pdf.cell(60, 8, "Sana va vaqt", border=1, ln=True)
 
-    pdf.cell(50, 8, safe_text("Miqdori (so‘m)"), border=1)
-    pdf.cell(70, 8, safe_text("Sana va vaqt"), border=1, ln=True)
-
-    for amount, date in payments:
-        date_str = date.strftime("%Y-%m-%d %H:%M") if isinstance(date, datetime) else str(date)
-        pdf.cell(50, 8, f"{float(amount):,.0f}", border=1)
-        pdf.cell(70, 8, date_str, border=1, ln=True)
+    for amount, created_at in payments:
+        local_time = (
+            created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            if created_at else "-"
+        )
+        pdf.cell(40, 8, f"{float(amount):,.0f}", border=1)
+        pdf.cell(60, 8, local_time, border=1, ln=True)
 
     pdf.ln(10)
 
-    # --- Yakuniy hisob ---
-    debt = total_expected - total_paid
+    # --- Yakun bo‘limi ---
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, safe_text("Yakun:"), ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, safe_text(f"Umumiy xizmatlar: {total_expected:,.0f} so‘m"), ln=True)
-    pdf.cell(0, 8, safe_text(f"To‘langan: {total_paid:,.0f} so‘m"), ln=True)
-    pdf.cell(0, 8, safe_text(f"Qarzdorlik: {debt:,.0f} so‘m"), ln=True)
-    pdf.cell(0, 8, safe_text(f"Umumiy xizmatlar soni: {total_service_count} ta"), ln=True)
+    pdf.cell(200, 8, txt="Yakun:", ln=True)
+    pdf.set_font("Arial", size=11)
+    pdf.cell(200, 8, txt=f"Umumiy xizmatlar: {total_expected:,.0f} so'm", ln=True)
+    pdf.cell(200, 8, txt=f"To'langan: {total_paid:,.0f} so'm", ln=True)
+    pdf.cell(200, 8, txt=f"Qarz: {debt:,.0f} so'm", ln=True)
+    pdf.cell(200, 8, txt=f"Umumiy xizmatlar soni: {len(services_summary)} ta", ln=True)
 
-    # --- PDF saqlash ---
-    filename = f"doctor_report_{doctor_id}.pdf"
-    filepath = os.path.join("/app", filename)
-    pdf.output(filepath)
-    return filepath
+    filename = f"doctor_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    pdf.output(filename)
+
+    return filename

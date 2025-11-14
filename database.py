@@ -103,7 +103,7 @@ def my_profile(update, context):
 
     doctor_id, doctor_name, phone = doctor
 
-    # 💰 To‘lovlar
+    # 💰 To‘lovlar va xizmatlar
     payments = get_payments_by_doctor(doctor_id)
     services = get_services_by_doctor(doctor_id)
 
@@ -111,14 +111,26 @@ def my_profile(update, context):
     total_expected = get_expected_total_by_doctor(doctor_id)
     debt = max(total_expected - total_paid, 0)
 
+    # --- 🗓️ Sana formatini uzbekcha qilish ---
+    oylar = {
+        "01": "yanvar", "02": "fevral", "03": "mart", "04": "aprel",
+        "05": "may", "06": "iyun", "07": "iyul", "08": "avgust",
+        "09": "sentyabr", "10": "oktyabr", "11": "noyabr", "12": "dekabr"
+    }
+
+    def format_time(dt):
+        if not dt:
+            return "-"
+        if hasattr(dt, "astimezone"):
+            dt = dt.astimezone(uzbek_tz)
+        oy = oylar[dt.strftime("%m")]
+        return f"{dt.strftime('%d')}-{oy} {dt.strftime('%Y, %H:%M')}"
+
+    # 💵 To‘lovlar ro‘yxati
     if payments:
         payment_lines = []
         for amount, created_at in payments:
-            if hasattr(created_at, "astimezone"):
-                local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
-            else:
-                local_time = str(created_at)
-            payment_lines.append(f"{local_time} — {float(amount):,.0f} so‘m")
+            payment_lines.append(f"{format_time(created_at)} — {float(amount):,.0f} so‘m")
         payments_text = "\n".join(payment_lines)
     else:
         payments_text = "Hech qanday to‘lov yo‘q."
@@ -138,12 +150,8 @@ def my_profile(update, context):
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}"
     )
 
-    # 🔙 Orqaga tugmasi
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔙 Asosiy menyu", callback_data="main_menu")]
-    ])
 
-    query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
+    query.edit_message_text(text, parse_mode="HTML")
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:
@@ -374,19 +382,16 @@ def get_service_by_id(service_id):
         "price": float(row[2]),
     }
 
-def add_payment(service_id, amount, doctor_id, service_name=None, created_at=None):
-    uzbek_tz = pytz.timezone("Asia/Tashkent")
-    now = datetime.now(uzbek_tz)
-    created_time = created_at or now
+from datetime import datetime
 
-    if not service_id:
-        service_name = None
+def add_payment(service_id, amount, doctor_id, service_name=None, created_at=None):
     with get_connection() as conn:
         with conn.cursor() as cur:
+            now = datetime.utcnow()  # UTC vaqtni saqlaymiz
             cur.execute("""
                 INSERT INTO payments (service_id, amount, doctor_id, service_name, created_at)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (service_id, amount, doctor_id, service_name, created_time))
+            """, (service_id, amount, doctor_id, service_name, created_at or now))
         conn.commit()
 
 
@@ -402,20 +407,14 @@ def get_payments_by_doctor(doctor_id):
             return cur.fetchall()
 
 def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
-    uzbek_tz = pytz.timezone("Asia/Tashkent")
-    now = datetime.now(uzbek_tz)
     conn = get_connection()
     cur = conn.cursor()
-    if created_at:
-        cur.execute("""
-            INSERT INTO doctor_services (doctor_id, service_id, quantity, created_at)
-            VALUES (%s, %s, %s, %s)
-        """, (doctor_id, service_id, quantity, created_at))
-    else:
-        cur.execute("""
-            INSERT INTO doctor_services (doctor_id, service_id, quantity, created_at)
-            VALUES (%s, %s, %s, %s)
-        """, (doctor_id, service_id, quantity, now))
+
+    now = datetime.utcnow()  # UTC sifatida saqlanadi
+    cur.execute("""
+        INSERT INTO doctor_services (doctor_id, service_id, quantity, created_at)
+        VALUES (%s, %s, %s, %s)
+    """, (doctor_id, service_id, quantity, created_at or now))
 
     conn.commit()
     cur.close()
