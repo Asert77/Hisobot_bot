@@ -379,7 +379,6 @@ def get_service_by_id(service_id):
         "price": float(row[2]),
     }
 
-# 💵 To‘lov qo‘shish
 def add_payment(service_id, amount, doctor_id, service_name=None):
     if not service_id:
         service_name = None  # ❗ xizmat yo'q bo'lsa, nomini ham saqlamaymiz
