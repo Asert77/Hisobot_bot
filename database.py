@@ -116,7 +116,7 @@ async def my_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         service_summary[name]["quantity"] += quantity
         service_summary[name]["price"] = price
 
-    # 🧮 4. Hisoblash
+
     service_lines = []
     total_expected = 0.0
 
