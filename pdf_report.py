@@ -123,7 +123,6 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
     pdf.set_font('DejaVu', 'B', 11)
     pdf.cell(0, 10, f"Umumiy xizmatlar soni: {total_services} ta", ln=True)
 
-    # 📁 PDF faylni saqlaymiz
     filename = f"/mnt/data/hisobot_{doctor_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(filename)
     return filename
