@@ -85,7 +85,7 @@ def create_tables():
     cur.close()
     conn.close()
 
-def my_profile(update, context):
+async def my_profile(update, context):
     query = update.callback_query
     user = update.effective_user
     telegram_id = user.id
@@ -149,7 +149,7 @@ def my_profile(update, context):
     )
 
 
-    query.edit_message_text(text, parse_mode="HTML")
+    await query.edit_message_text(text, parse_mode="HTML")
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:

@@ -38,7 +38,6 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
         else:
             services_html = "<tr><td colspan='4' style='text-align:center;'>Hech qanday xizmat yo‘q</td></tr>"
 
-    # 💰 To‘lovlar jadvali (HTML)
     payments_html = ""
     if payments:
         for amount, created_at in payments:
