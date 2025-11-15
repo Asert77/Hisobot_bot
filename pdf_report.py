@@ -119,7 +119,6 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
 
     pdf.ln(10)
 
-    # 🔸 Umumiy xizmatlar soni
     total_services = len(services_summary)
     pdf.set_font('DejaVu', 'B', 11)
     pdf.cell(0, 10, f"Umumiy xizmatlar soni: {total_services} ta", ln=True)
