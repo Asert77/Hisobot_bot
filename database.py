@@ -405,6 +405,7 @@ def add_payment(service_id, amount, doctor_id, service_name=None, created_at=Non
 def get_payments_by_doctor(doctor_id):
 
     uzbek_tz = pytz.timezone("Asia/Tashkent")
+    results = []
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -412,18 +413,31 @@ def get_payments_by_doctor(doctor_id):
                 SELECT amount, created_at
                 FROM payments
                 WHERE doctor_id = %s
-                ORDER BY created_at DESC
+                ORDER BY created_at ASC
             """, (doctor_id,))
             rows = cur.fetchall()
-    payments = []
-    for amount, created_at in rows:
-        if created_at is not None:
-            if created_at.tzinfo is None:
-                created_at = pytz.utc.localize(created_at)
-            created_at = created_at.astimezone(uzbek_tz)
-        payments.append((float(amount), created_at))
 
-    return payments
+    for row in rows:
+        try:
+            amount = float(row[0])
+            created_at = row[1]
+
+            # Agar sana null bo‘lsa yoki noto‘g‘ri bo‘lsa, hozirgi vaqtni ishlatamiz
+            if created_at is None:
+                created_at = datetime.now(uzbek_tz)
+            elif not hasattr(created_at, "astimezone"):
+                created_at = datetime.strptime(str(created_at), "%Y-%m-%d %H:%M:%S")
+
+            if created_at.tzinfo is None:
+                created_at = pytz.UTC.localize(created_at)
+            created_at = created_at.astimezone(uzbek_tz)
+
+            results.append((amount, created_at))
+        except Exception as e:
+            print(f"⚠️ To‘lovni o‘qishda xato: {e}")
+            continue
+
+    return results
 
 def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
     conn = get_connection()
