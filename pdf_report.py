@@ -15,22 +15,28 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
         if len(row) >= 2:
             total_services_count += row[1]
 
-    # 🧾 Xizmatlar jadvali (HTML)
-    services_html = ""
-    if services_summary:
-        for row in services_summary:
-            name = row[0]
-            qty = row[1] if len(row) > 1 else "-"
-            total = row[2] if len(row) > 2 else "-"
-            services_html += f"""
-            <tr>
-                <td>{name}</td>
-                <td>{qty}</td>
-                <td>{total}</td>
-            </tr>
-            """
-    else:
-        services_html = "<tr><td colspan='3' style='text-align:center;'>Hech qanday xizmat yo‘q</td></tr>"
+        # 🧾 Xizmatlar jadvali (HTML)
+        services_html = ""
+        if services_summary:
+            for row in services_summary:
+                name = row[0]
+                qty = row[1] if len(row) > 1 else "-"
+                total = row[2] if len(row) > 2 else "-"
+                created_at = row[3] if len(row) > 3 else None
+                if created_at and hasattr(created_at, "strftime"):
+                    created_at = created_at.strftime("%Y-%m-%d %H:%M")
+                else:
+                    created_at = "-"
+                services_html += f"""
+                <tr>
+                    <td>{name}</td>
+                    <td>{qty}</td>
+                    <td>{total:,.0f}</td>
+                    <td>{created_at}</td>
+                </tr>
+                """
+        else:
+            services_html = "<tr><td colspan='4' style='text-align:center;'>Hech qanday xizmat yo‘q</td></tr>"
 
     # 💰 To‘lovlar jadvali (HTML)
     payments_html = ""
