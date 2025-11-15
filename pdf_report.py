@@ -1,134 +1,120 @@
-from fpdf import FPDF
+from xhtml2pdf import pisa
+from io import BytesIO
 from datetime import datetime
 import pytz
-UZBEK_TZ = pytz.timezone("Asia/Tashkent")
+import os
 
-def safe_text(text):
-    """Unicode tutuq va belgilarni PDF uchun xavfsiz formatga o‘tkazadi."""
-    if not text:
-        return ""
-    replacements = {
-        "‘": "'", "’": "'", "ʻ": "'", "ʼ": "'", "´": "'", "ˋ": "'", "ʹ": "'", "ʽ": "'",
-        "“": '"', "”": '"', "–": "-", "—": "-", "…": "...",
-    }
-    for bad, good in replacements.items():
-        text = text.replace(bad, good)
-    return text
-
-
-class PDF(FPDF):
-    def header(self):
-        self.set_font("Arial", "B", 14)
-        self.cell(0, 10, safe_text("Doktor bo‘yicha hisobot"), align="C", ln=True)
-        self.ln(5)
-
-    def footer(self):
-        self.set_y(-15)
-        self.set_font("Arial", "I", 8)
-        self.cell(0, 10, f"Sahifa {self.page_no()}", align="C")
-
-from fpdf import FPDF
-import pytz
-from datetime import datetime
 
 def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt, services_summary):
+    """
+    Doktor hisobotini HTML asosida PDF ko‘rinishida yaratadi.
+    """
+
+    # 🇺🇿 Tashkent vaqti
     uzbek_tz = pytz.timezone("Asia/Tashkent")
+    now = datetime.now(uzbek_tz).strftime("%Y-%m-%d %H:%M")
 
-    # 🛠 Har ehtimolga qarshi noto‘g‘ri qiymatlarni float’ga aylantiramiz
-    def normalize_number(value):
-        if isinstance(value, list):
-            return sum(float(v) for v in value if isinstance(v, (int, float)))
-        elif isinstance(value, (int, float)):
-            return float(value)
-        elif value is None:
-            return 0.0
-        try:
-            return float(str(value).replace(',', ''))
-        except Exception:
-            return 0.0
+    # 🔢 Umumiy xizmatlar soni
+    total_services_count = sum(qty for _, qty, _ in services_summary) if services_summary else 0
 
-    total_paid = normalize_number(total_paid)
-    total_expected = normalize_number(total_expected)
-    debt = normalize_number(debt)
+    # 🧾 Xizmatlar jadvali (HTML)
+    services_html = ""
+    if services_summary:
+        for name, qty, total in services_summary:
+            services_html += f"""
+            <tr>
+                <td>{name}</td>
+                <td>{qty}</td>
+                <td>{total:,.0f}</td>
+            </tr>
+            """
+    else:
+        services_html = "<tr><td colspan='3' style='text-align:center;'>Hech qanday xizmat yo‘q</td></tr>"
 
-    # 🧾 PDF sozlamalari
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-    pdf.set_font("DejaVu", "", 12)
-
-    # 🧠 Sarlavha
-    now_uz = datetime.now(uzbek_tz).strftime("%Y-%m-%d %H:%M")
-    pdf.cell(0, 10, f"Doktor: {doctor_name}", ln=True)
-    pdf.cell(0, 8, f"Hisobot yaratilgan vaqt: {now_uz}", ln=True)
-    pdf.ln(5)
-
-    # 💰 To‘lovlar bo‘limi
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 8, "To‘lovlar:", ln=True)
-    pdf.set_font("DejaVu", "", 11)
-
+    # 💰 To‘lovlar jadvali (HTML)
+    payments_html = ""
     if payments:
-        pdf.cell(70, 8, "Sana / Vaqt", border=1)
-        pdf.cell(70, 8, "To‘lov summasi (so‘m)", border=1, ln=True)
-
         for amount, created_at in payments:
             if hasattr(created_at, "astimezone"):
-                created_at = created_at.astimezone(uzbek_tz)
-            created_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "-"
-            pdf.cell(70, 8, created_str, border=1)
-            pdf.cell(70, 8, f"{float(amount):,.0f}", border=1, ln=True)
+                local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            else:
+                local_time = str(created_at)
+            payments_html += f"""
+            <tr>
+                <td>{local_time}</td>
+                <td>{amount:,.0f}</td>
+            </tr>
+            """
     else:
-        pdf.cell(0, 8, "To‘lovlar mavjud emas", ln=True)
+        payments_html = "<tr><td colspan='2' style='text-align:center;'>Hech qanday to‘lov yo‘q</td></tr>"
 
-    pdf.ln(8)
+    # 🧩 HTML Shablon
+    html = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: DejaVu Sans, sans-serif;
+                font-size: 12pt;
+                color: #000;
+            }}
+            h1 {{
+                text-align: center;
+                font-size: 18pt;
+                margin-bottom: 20px;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+                margin-bottom: 20px;
+            }}
+            th, td {{
+                border: 1px solid #000;
+                padding: 6px;
+                text-align: left;
+            }}
+            th {{
+                background-color: #f0f0f0;
+            }}
+            .section-title {{
+                font-size: 14pt;
+                margin-top: 20px;
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Doktor hisobot</h1>
+        <p><b>Doktor:</b> {doctor_name}</p>
+        <p><b>Hisobot yaratilgan sana:</b> {now}</p>
+        <p><b>To‘langan summa:</b> {total_paid:,.0f} so‘m</p>
+        <p><b>Umumiy xizmatlar:</b> {total_expected:,.0f} so‘m</p>
+        <p><b>Qarzdorlik:</b> {debt:,.0f} so‘m</p>
+        <p><b>Umumiy xizmatlar soni:</b> {total_services_count} ta</p>
 
-    # 🧾 Xizmatlar bo‘limi
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 8, "Qo‘shilgan xizmatlar:", ln=True)
-    pdf.set_font("DejaVu", "", 11)
+        <div class="section-title">Xizmatlar ro‘yxati</div>
+        <table>
+            <tr><th>Nomi</th><th>Soni</th><th>Jami (so‘m)</th></tr>
+            {services_html}
+        </table>
 
-    total_services = 0
-    total_services_value = 0
+        <div class="section-title">To‘lovlar tarixi</div>
+        <table>
+            <tr><th>Sana</th><th>Summa (so‘m)</th></tr>
+            {payments_html}
+        </table>
+    </body>
+    </html>
+    """
 
-    if services_summary:
-        pdf.cell(60, 8, "Xizmat nomi", border=1)
-        pdf.cell(25, 8, "Soni", border=1)
-        pdf.cell(45, 8, "Narxi (so‘m)", border=1)
-        pdf.cell(50, 8, "Qo‘shilgan sana / vaqt", border=1, ln=True)
+    # 📁 Saqlash joyi
+    filename = f"doctor_report_{doctor_name.replace(' ', '_')}.pdf"
+    output_path = os.path.join("/app", filename)
 
-        for s in services_summary:
-            name = s.get("name", "-")
-            price = normalize_number(s.get("price"))
-            qty = int(s.get("quantity", 0))
-            created = s.get("created_at")
+    # 🧾 PDF yaratish
+    with open(output_path, "wb") as f:
+        pisa.CreatePDF(BytesIO(html.encode("utf-8")), dest=f)
 
-            if hasattr(created, "astimezone"):
-                created = created.astimezone(uzbek_tz)
-            created_str = created.strftime("%Y-%m-%d %H:%M") if created else "-"
-
-            pdf.cell(60, 8, name, border=1)
-            pdf.cell(25, 8, f"{qty}", border=1)
-            pdf.cell(45, 8, f"{price:,.0f}", border=1)
-            pdf.cell(50, 8, created_str, border=1, ln=True)
-
-            total_services += qty
-            total_services_value += price * qty
-    else:
-        pdf.cell(0, 8, "Xizmatlar mavjud emas", ln=True)
-
-    pdf.ln(8)
-
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 8, "Yakuniy natijalar:", ln=True)
-    pdf.cell(0, 8, f"To‘langan summa: {total_paid:,.0f} so‘m", ln=True)
-    pdf.cell(0, 8, f"Umumiy xizmatlar qiymati: {total_expected:,.0f} so‘m", ln=True)
-    pdf.cell(0, 8, f"Qarzdorlik: {debt:,.0f} so‘m", ln=True)
-    pdf.cell(0, 8, f"Umumiy xizmatlar soni: {total_services} ta", ln=True)
-    pdf.cell(0, 8, f"Umumiy xizmatlar qiymati (aniq): {total_services_value:,.0f} so‘m", ln=True)
-
-    filename = f"hisobot_{doctor_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    filepath = f"/app/{filename}"
-    pdf.output(filepath)
-    return filepath
+    return output_path
