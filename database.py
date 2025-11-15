@@ -148,7 +148,7 @@ async def my_profile(update, context):
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}"
     )
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("◀️ Orqaga", callback_data="doctor_menu")]
+        [InlineKeyboardButton("◀️ Orqaga", callback_data="my_profile")]
     ])
 
     await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)

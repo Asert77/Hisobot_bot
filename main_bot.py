@@ -123,8 +123,9 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
     elif data == "report_main":
         return await start_report(update, context)
+    elif data == "my_profile":
+        await my_profile(update, context)
 
-    # 👨‍⚕️ Doktor menyusi
     elif data.startswith("doctor_"):
         doctor_id = int(data.split("_")[1])
         context.user_data["doctor_id"] = doctor_id
