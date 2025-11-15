@@ -316,35 +316,48 @@ async def confirm_close_debt(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ConversationHandler.END
 
 def get_services_by_doctor(doctor_id):
-
     uzbek_tz = pytz.timezone("Asia/Tashkent")
+    results = []
 
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT s.name, ds.quantity, s.price, ds.created_at
+                SELECT s.name, s.price, ds.quantity, ds.created_at
                 FROM doctor_services ds
-                JOIN services s ON ds.service_id = s.id
+                JOIN services s ON s.id = ds.service_id
                 WHERE ds.doctor_id = %s
-                ORDER BY ds.created_at DESC
+                ORDER BY ds.created_at ASC
             """, (doctor_id,))
             rows = cur.fetchall()
 
-    services = []
-    for name, quantity, price, created_at in rows:
-        if created_at is not None:
+    for row in rows:
+        try:
+            name = row[0]
+            price = float(row[1])
+            quantity = int(row[2])
+            created_at = row[3]
+
+            # ✅ Sana to‘g‘rilash
+            if created_at is None:
+                created_at = datetime.now(uzbek_tz)
+            elif not hasattr(created_at, "astimezone"):
+                created_at = datetime.strptime(str(created_at), "%Y-%m-%d %H:%M:%S")
+
             if created_at.tzinfo is None:
-                created_at = pytz.utc.localize(created_at)
+                created_at = pytz.UTC.localize(created_at)
             created_at = created_at.astimezone(uzbek_tz)
 
-        services.append({
-            "name": name,
-            "quantity": int(quantity),
-            "price": float(price),
-            "created_at": created_at
-        })
+            results.append({
+                "name": name,
+                "price": price,
+                "quantity": quantity,
+                "created_at": created_at
+            })
+        except Exception as e:
+            print(f"⚠️ Xizmatni o‘qishda xato: {e}")
+            continue
 
-    return services
+    return results
 
 def get_doctor_id_by_telegram_id(telegram_id):
     with get_connection() as conn:
