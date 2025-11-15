@@ -6,26 +6,27 @@ import os
 
 
 def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt, services_summary):
-    """
-    Doktor hisobotini HTML asosida PDF ko‘rinishida yaratadi.
-    """
-
-    # 🇺🇿 Tashkent vaqti
     uzbek_tz = pytz.timezone("Asia/Tashkent")
     now = datetime.now(uzbek_tz).strftime("%Y-%m-%d %H:%M")
 
-    # 🔢 Umumiy xizmatlar soni
-    total_services_count = sum(qty for _, qty, _ in services_summary) if services_summary else 0
+    # 🔢 Xizmatlar sonini moslashuvchan hisoblash
+    total_services_count = 0
+    for row in services_summary:
+        if len(row) >= 2:
+            total_services_count += row[1]
 
     # 🧾 Xizmatlar jadvali (HTML)
     services_html = ""
     if services_summary:
-        for name, qty, total in services_summary:
+        for row in services_summary:
+            name = row[0]
+            qty = row[1] if len(row) > 1 else "-"
+            total = row[2] if len(row) > 2 else "-"
             services_html += f"""
             <tr>
                 <td>{name}</td>
                 <td>{qty}</td>
-                <td>{total:,.0f}</td>
+                <td>{total}</td>
             </tr>
             """
     else:
@@ -109,11 +110,9 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
     </html>
     """
 
-    # 📁 Saqlash joyi
     filename = f"doctor_report_{doctor_name.replace(' ', '_')}.pdf"
     output_path = os.path.join("/app", filename)
 
-    # 🧾 PDF yaratish
     with open(output_path, "wb") as f:
         pisa.CreatePDF(BytesIO(html.encode("utf-8")), dest=f)
 

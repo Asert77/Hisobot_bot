@@ -463,16 +463,33 @@ def add_doctor_service(doctor_id, service_id, quantity, created_at=None):
     conn.close()
 
 def get_services_summary_by_doctor(doctor_id):
+    uzbek_tz = pytz.timezone("Asia/Tashkent")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT s.name, s.price, ds.quantity, ds.created_at
+                SELECT 
+                    s.name AS service_name,
+                    SUM(ds.quantity) AS total_quantity,
+                    SUM(ds.quantity * s.price) AS total_price,
+                    MAX(ds.created_at) AS last_added
                 FROM doctor_services ds
-                JOIN services s ON s.id = ds.service_id
+                JOIN services s ON ds.service_id = s.id
                 WHERE ds.doctor_id = %s
-                ORDER BY ds.created_at ASC
+                GROUP BY s.name
+                ORDER BY last_added DESC
             """, (doctor_id,))
-            return cur.fetchall()
+            rows = cur.fetchall()
+
+    # Har bir sana UTC bo‘lsa, Tashkent vaqtiga o‘tkazamiz
+    results = []
+    for row in rows:
+        name, qty, total, created_at = row
+        if created_at and hasattr(created_at, "astimezone"):
+            created_at = created_at.astimezone(uzbek_tz)
+        results.append((name, int(qty), float(total), created_at))
+
+    return results
 
 
 def get_doctor_telegram_id(doctor_id):
