@@ -147,9 +147,11 @@ async def my_profile(update, context):
         f"<b>🔢 Umumiy xizmatlar soni:</b> {service_count} ta\n\n"
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}"
     )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("◀️ Orqaga", callback_data="doctor_menu")]
+    ])
 
-
-    await query.edit_message_text(text, parse_mode="HTML")
+    await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:
