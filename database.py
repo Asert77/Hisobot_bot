@@ -284,8 +284,6 @@ def close_debts(doctor_id, amount):
 
     return [], 0  # qaytarilishi shart bo‘lgan struktura
 
-
-# 🔁 Barcha xizmatlar (umumiy)
 def get_all_services():
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -342,11 +340,9 @@ def get_services_by_doctor(doctor_id):
                 created_at = datetime.now(uzbek_tz)
             elif not hasattr(created_at, "astimezone"):
                 created_at = datetime.strptime(str(created_at), "%Y-%m-%d %H:%M:%S")
-
             if created_at.tzinfo is None:
                 created_at = pytz.UTC.localize(created_at)
             created_at = created_at.astimezone(uzbek_tz)
-
             results.append({
                 "name": name,
                 "price": price,
