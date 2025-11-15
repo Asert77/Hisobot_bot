@@ -85,6 +85,8 @@ def create_tables():
     cur.close()
     conn.close()
 
+from telegram.error import BadRequest
+
 async def my_profile(update, context):
     query = update.callback_query
     user = update.effective_user
@@ -99,11 +101,11 @@ async def my_profile(update, context):
             doctor = cur.fetchone()
 
     if not doctor:
-        return query.edit_message_text("❌ Siz ro‘yxatdan o‘tmagansiz. Iltimos, administrator bilan bog‘laning.")
+        return await query.edit_message_text("❌ Siz ro‘yxatdan o‘tmagansiz. Iltimos, administrator bilan bog‘laning.")
 
     doctor_id, doctor_name, phone = doctor
 
-    # 💰 To‘lovlar va xizmatlar
+    # 💰 To‘lovlar
     payments = get_payments_by_doctor(doctor_id)
     services = get_services_by_doctor(doctor_id)
 
@@ -111,33 +113,23 @@ async def my_profile(update, context):
     total_expected = get_expected_total_by_doctor(doctor_id)
     debt = max(total_expected - total_paid, 0)
 
-    # --- 🗓️ Sana formatini uzbekcha qilish ---
-    oylar = {
-        "01": "yanvar", "02": "fevral", "03": "mart", "04": "aprel",
-        "05": "may", "06": "iyun", "07": "iyul", "08": "avgust",
-        "09": "sentyabr", "10": "oktyabr", "11": "noyabr", "12": "dekabr"
-    }
-
-    def format_time(dt):
-        if not dt:
-            return "-"
-        if hasattr(dt, "astimezone"):
-            dt = dt.astimezone(uzbek_tz)
-        oy = oylar[dt.strftime("%m")]
-        return f"{dt.strftime('%d')}-{oy} {dt.strftime('%Y, %H:%M')}"
-
-    # 💵 To‘lovlar ro‘yxati
     if payments:
         payment_lines = []
         for amount, created_at in payments:
-            payment_lines.append(f"{format_time(created_at)} — {float(amount):,.0f} so‘m")
+            if hasattr(created_at, "astimezone"):
+                local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            else:
+                local_time = str(created_at)
+            payment_lines.append(f"{local_time} — {float(amount):,.0f} so‘m")
         payments_text = "\n".join(payment_lines)
     else:
         payments_text = "Hech qanday to‘lov yo‘q."
 
+    # 🧾 Xizmatlar soni
     service_count = len(services)
     total_services_price = float(total_expected)
 
+    # 📋 Yakuniy matn
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
         f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
@@ -145,13 +137,24 @@ async def my_profile(update, context):
         f"<b>🧾 Umumiy xizmatlar:</b> {total_services_price:,.0f} so‘m\n"
         f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so‘m\n"
         f"<b>🔢 Umumiy xizmatlar soni:</b> {service_count} ta\n\n"
-        f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}"
+        f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}\n\n"
+        f"<i>Yangilanish vaqti: {datetime.now(uzbek_tz).strftime('%H:%M:%S')}</i>"
     )
+
+    # 🔙 Orqaga tugmasi
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("◀️ Orqaga", callback_data="my_profile")]
     ])
 
-    await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
+    # 🧩 Matnni xavfsiz tahrirlash
+    try:
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
+    except BadRequest as e:
+        if "Message is not modified" in str(e):
+            # Xabar o‘zgarmagan — e’tiborsiz qoldiramiz
+            pass
+        else:
+            raise
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:
