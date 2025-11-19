@@ -84,13 +84,8 @@ def create_tables():
     conn.commit()
     cur.close()
     conn.close()
-
 from telegram.error import BadRequest
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import BadRequest
-import pytz
-from datetime import datetime
 
 async def my_profile(update, context):
     query = update.callback_query
@@ -113,24 +108,19 @@ async def my_profile(update, context):
     # 💰 To‘lovlar
     payments = get_payments_by_doctor(doctor_id)
     services = get_services_by_doctor(doctor_id)
-    services_summary = get_services_summary_by_doctor(doctor_id)  # ✅ nom, qty, va created_at bo‘lishi kerak
+    services_summary = get_services_summary_by_doctor(doctor_id)
 
     total_paid = sum(float(amount) for amount, _ in payments)
     total_expected = get_expected_total_by_doctor(doctor_id)
     debt = max(total_expected - total_paid, 0)
 
-    # 🧾 Xizmatlar ro‘yxati
-    service_count = len(services)
-    total_services_price = float(total_expected)
+    services_summary = get_services_summary_by_doctor(doctor_id)
 
     if services_summary:
         service_lines = []
-        for service_name, qty, created_at in services_summary:
-            if hasattr(created_at, "astimezone"):
-                created_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
-            else:
-                created_time = str(created_at)
-            service_lines.append(f"• {service_name} — {qty} ta ({created_time})")
+        for service_name, qty, total, created_at in services_summary:
+            line = f"{created_at} — {service_name}: {qty} ta, {total:,.0f} so‘m"
+            service_lines.append(line)
         services_text = "\n".join(service_lines)
     else:
         services_text = "Hech qanday xizmat qo‘shilmagan."
@@ -148,17 +138,16 @@ async def my_profile(update, context):
     else:
         payments_text = "Hech qanday to‘lov yo‘q."
 
-    # 📋 Yakuniy matn
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
         f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
         f"<b>💰 To‘langan jami:</b> {total_paid:,.0f} so‘m\n"
-        f"<b>🧾 Umumiy xizmatlar:</b> {total_services_price:,.0f} so‘m\n"
+        f"<b>🧾 Umumiy xizmatlar:</b> {total_expected:,.0f} so‘m\n"
         f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so‘m\n"
-        f"<b>🔢 Umumiy xizmatlar soni:</b> {service_count} ta\n\n"
+        f"<b>🔢 Umumiy xizmatlar soni:</b> {len(services_summary)} ta\n\n"
         f"<b>🧩 Qo‘shilgan xizmatlar:</b>\n{services_text}\n\n"
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}\n\n"
-        f"<i>Yangilanish vaqti: {datetime.now(uzbek_tz).strftime('%H:%M:%S')}</i>"
+        f"<b>Yangilanish vaqti:</b> {datetime.now().strftime('%H:%M:%S')}"
     )
 
     # 🔙 Orqaga tugmasi
