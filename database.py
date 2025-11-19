@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import psycopg2
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.error import BadRequest
 from telegram.ext import ContextTypes, ConversationHandler
 import pytz
 from dotenv import load_dotenv
@@ -86,6 +85,12 @@ def create_tables():
     cur.close()
     conn.close()
 
+from telegram.error import BadRequest
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import BadRequest
+import pytz
+from datetime import datetime
 
 async def my_profile(update, context):
     query = update.callback_query
@@ -108,24 +113,29 @@ async def my_profile(update, context):
     # 💰 To‘lovlar
     payments = get_payments_by_doctor(doctor_id)
     services = get_services_by_doctor(doctor_id)
-    services_summary = get_services_summary_by_doctor(doctor_id)  # <--- bu yerda xizmatlar nomi va miqdorini olamiz
+    services_summary = get_services_summary_by_doctor(doctor_id)  # ✅ nom, qty, va created_at bo‘lishi kerak
 
     total_paid = sum(float(amount) for amount, _ in payments)
     total_expected = get_expected_total_by_doctor(doctor_id)
     debt = max(total_expected - total_paid, 0)
 
+    # 🧾 Xizmatlar ro‘yxati
     service_count = len(services)
     total_services_price = float(total_expected)
 
     if services_summary:
         service_lines = []
-        for service_name, qty, _ in services_summary:
-            service_lines.append(f"• {service_name} — {qty} ta")
+        for service_name, qty, created_at in services_summary:
+            if hasattr(created_at, "astimezone"):
+                created_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            else:
+                created_time = str(created_at)
+            service_lines.append(f"• {service_name} — {qty} ta ({created_time})")
         services_text = "\n".join(service_lines)
     else:
         services_text = "Hech qanday xizmat qo‘shilmagan."
 
-    # 💸 To‘lovlar ro‘yxati
+    # 💸 To‘lovlar
     if payments:
         payment_lines = []
         for amount, created_at in payments:
@@ -138,6 +148,7 @@ async def my_profile(update, context):
     else:
         payments_text = "Hech qanday to‘lov yo‘q."
 
+    # 📋 Yakuniy matn
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
         f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
@@ -152,10 +163,9 @@ async def my_profile(update, context):
 
     # 🔙 Orqaga tugmasi
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yangilash", callback_data="my_profile")]
+        [InlineKeyboardButton("◀️ Orqaga", callback_data="my_profile")]
     ])
 
-    # 🧩 Matnni xavfsiz tahrirlash
     try:
         await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
     except BadRequest as e:
