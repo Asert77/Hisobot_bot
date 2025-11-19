@@ -119,6 +119,8 @@ async def my_profile(update, context):
     if services_summary:
         service_lines = []
         for service_name, qty, total, created_at in services_summary:
+            if created_at and hasattr(created_at, "strftime"):
+                created_at = created_at.strftime("%Y-%m-%d %H:%M")
             line = f"{created_at} — {service_name}: {qty} ta, {total:,.0f} so‘m"
             service_lines.append(line)
         services_text = "\n".join(service_lines)
@@ -152,7 +154,7 @@ async def my_profile(update, context):
 
     # 🔙 Orqaga tugmasi
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("◀️ Orqaga", callback_data="my_profile")]
+        [InlineKeyboardButton("Yangilash", callback_data="my_profile")]
     ])
 
     try:
