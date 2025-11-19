@@ -149,7 +149,6 @@ async def my_profile(update, context):
         f"<b>🔢 Umumiy xizmatlar soni:</b> {len(services_summary)} ta\n\n"
         f"<b>🧩 Qo‘shilgan xizmatlar:</b>\n{services_text}\n\n"
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}\n\n"
-        f"<b>Yangilanish vaqti:</b> {datetime.now().strftime('%H:%M:%S')}"
     )
 
     # 🔙 Orqaga tugmasi
