@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import psycopg2
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes, ConversationHandler
 import pytz
 from dotenv import load_dotenv
@@ -85,7 +86,6 @@ def create_tables():
     cur.close()
     conn.close()
 
-from telegram.error import BadRequest
 
 async def my_profile(update, context):
     query = update.callback_query
@@ -108,11 +108,24 @@ async def my_profile(update, context):
     # 💰 To‘lovlar
     payments = get_payments_by_doctor(doctor_id)
     services = get_services_by_doctor(doctor_id)
+    services_summary = get_services_summary_by_doctor(doctor_id)  # <--- bu yerda xizmatlar nomi va miqdorini olamiz
 
     total_paid = sum(float(amount) for amount, _ in payments)
     total_expected = get_expected_total_by_doctor(doctor_id)
     debt = max(total_expected - total_paid, 0)
 
+    service_count = len(services)
+    total_services_price = float(total_expected)
+
+    if services_summary:
+        service_lines = []
+        for service_name, qty, _ in services_summary:
+            service_lines.append(f"• {service_name} — {qty} ta")
+        services_text = "\n".join(service_lines)
+    else:
+        services_text = "Hech qanday xizmat qo‘shilmagan."
+
+    # 💸 To‘lovlar ro‘yxati
     if payments:
         payment_lines = []
         for amount, created_at in payments:
@@ -125,11 +138,6 @@ async def my_profile(update, context):
     else:
         payments_text = "Hech qanday to‘lov yo‘q."
 
-    # 🧾 Xizmatlar soni
-    service_count = len(services)
-    total_services_price = float(total_expected)
-
-    # 📋 Yakuniy matn
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
         f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
@@ -137,6 +145,7 @@ async def my_profile(update, context):
         f"<b>🧾 Umumiy xizmatlar:</b> {total_services_price:,.0f} so‘m\n"
         f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so‘m\n"
         f"<b>🔢 Umumiy xizmatlar soni:</b> {service_count} ta\n\n"
+        f"<b>🧩 Qo‘shilgan xizmatlar:</b>\n{services_text}\n\n"
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}\n\n"
         f"<i>Yangilanish vaqti: {datetime.now(uzbek_tz).strftime('%H:%M:%S')}</i>"
     )
@@ -151,7 +160,6 @@ async def my_profile(update, context):
         await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
     except BadRequest as e:
         if "Message is not modified" in str(e):
-            # Xabar o‘zgarmagan — e’tiborsiz qoldiramiz
             pass
         else:
             raise
