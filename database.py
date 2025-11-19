@@ -505,9 +505,10 @@ def get_services_summary_by_doctor(doctor_id):
             rows = cur.fetchall()
 
     results = []
-    for name, qty, total, created_at in rows:
+    for row in rows:
+        name, qty, total, created_at = row
         if created_at and hasattr(created_at, "astimezone"):
-            created_at = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            created_at = created_at.astimezone(uzbek_tz)
         results.append((name, int(qty), float(total), created_at))
 
     return results
