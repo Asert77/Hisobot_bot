@@ -9,35 +9,33 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
     uzbek_tz = pytz.timezone("Asia/Tashkent")
     now = datetime.now(uzbek_tz).strftime("%Y-%m-%d %H:%M")
 
-    # 🔢 Xizmatlar sonini moslashuvchan hisoblash
-    total_services_count = 0
-    for row in services_summary:
-        if len(row) >= 2:
-            total_services_count += row[1]
+    # 🔢 Xizmatlar soni
+    total_services_count = sum(row[1] for row in services_summary if len(row) >= 2)
 
-        # 🧾 Xizmatlar jadvali (HTML)
-        services_html = ""
-        if services_summary:
-            for row in services_summary:
-                name = row[0]
-                qty = row[1] if len(row) > 1 else "-"
-                total = row[2] if len(row) > 2 else "-"
-                created_at = row[3] if len(row) > 3 else None
-                if created_at and hasattr(created_at, "strftime"):
-                    created_at = created_at.strftime("%Y-%m-%d %H:%M")
-                else:
-                    created_at = "-"
-                services_html += f"""
-                <tr>
-                    <td>{name}</td>
-                    <td>{qty}</td>
-                    <td>{total:,.0f}</td>
-                    <td>{created_at}</td>
-                </tr>
-                """
-        else:
-            services_html = "<tr><td colspan='4' style='text-align:center;'>Hech qanday xizmat yo‘q</td></tr>"
+    # 🧾 Xizmatlar jadvali
+    services_html = ""
+    if services_summary:
+        for row in services_summary:
+            name = row[0]
+            qty = row[1] if len(row) > 1 else "-"
+            total = row[2] if len(row) > 2 else "-"
+            created_at = row[3] if len(row) > 3 else None
+            if created_at and hasattr(created_at, "strftime"):
+                created_at = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            else:
+                created_at = "-"
+            services_html += f"""
+            <tr>
+                <td>{name}</td>
+                <td>{qty}</td>
+                <td>{total:,.0f}</td>
+                <td>{created_at}</td>
+            </tr>
+            """
+    else:
+        services_html = "<tr><td colspan='4' style='text-align:center;'>Hech qanday xizmat yo‘q</td></tr>"
 
+    # 💰 To‘lovlar jadvali
     payments_html = ""
     if payments:
         for amount, created_at in payments:
@@ -54,7 +52,7 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
     else:
         payments_html = "<tr><td colspan='2' style='text-align:center;'>Hech qanday to‘lov yo‘q</td></tr>"
 
-    # 🧩 HTML Shablon
+    # 🧩 HTML shablon
     html = f"""
     <html>
     <head>
@@ -102,7 +100,7 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
 
         <div class="section-title">Xizmatlar ro‘yxati</div>
         <table>
-            <tr><th>Nomi</th><th>Soni</th><th>Jami (so‘m)</th></tr>
+            <tr><th>Nomi</th><th>Soni</th><th>Jami (so‘m)</th><th>Sana</th></tr>
             {services_html}
         </table>
 
