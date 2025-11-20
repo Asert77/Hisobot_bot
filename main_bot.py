@@ -22,8 +22,7 @@ from service.doctor_view import (
     select_service,  # xizmat tanlandi
     ask_service_quantity, add_service_to_doctor  # sonini kiritish
 )
-from service.report_view import start_report, ASK_REPORT_RANGE, handle_report_period, ASK_CUSTOM_RANGE, \
-    process_custom_range, cancel_report
+from service.report_view import start_report, ASK_REPORT_RANGE, process_report_range
 from telegram.request import HTTPXRequest
 
 request = HTTPXRequest(connect_timeout=10.0, read_timeout=20.0)
@@ -589,29 +588,31 @@ async def main():
         fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
-
-    report_conv_handler = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(start_report, pattern="^general_report$")
-        ],
+    report_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(start_report, pattern="^report_main$")],
         states={
             ASK_REPORT_RANGE: [
-                CallbackQueryHandler(handle_report_period, pattern="^report_")
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_report_range)
             ],
-            ASK_CUSTOM_RANGE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, process_custom_range)
-            ]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel_report),
-            CallbackQueryHandler(start_report, pattern="^report_menu$")
-        ]
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
+
 
     conv_start = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
-        states={},
+        states={},  # start tugagach hech qanday state yo‘q — lekin agar kerak bo‘lsa, qo‘shasiz
         fallbacks=[],
+    )
+
+    conv_report = ConversationHandler(
+        entry_points=[CallbackQueryHandler(start_report, pattern="^report_main$")],
+        states={
+            ASK_REPORT_RANGE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_report_range)
+            ],
+        },
+        fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
     )
 
     # 1️⃣ Asosiy ConversationHandler’lar
@@ -619,12 +620,13 @@ async def main():
     app.add_handler(conv_add_doctor)
     app.add_handler(conv_add_service)
     app.add_handler(conv_payment)
+    app.add_handler(conv_report)
     app.add_handler(phone_conv_handler)
     app.add_handler(CallbackQueryHandler(back_to_user_menu, pattern="^back_to_user_menu$"))
     app.add_handler(conv_edit_doctor_name)
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
     app.add_handler(CallbackQueryHandler(my_profile, pattern="^my_profile$"))
-    app.add_handler(report_conv_handler)
+    app.add_handler(report_handler)
     app.add_handler(CallbackQueryHandler(show_services_for_payment, pattern="^add_service_to_doctor$"))
     app.add_handler(CallbackQueryHandler(select_service, pattern="^select_service_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask_service_quantity))
