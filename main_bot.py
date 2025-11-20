@@ -288,6 +288,10 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{context.user_data['doctor_id']}")])
         await query.edit_message_text("🛠 Qo‘shiladigan xizmatni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
 
+    elif data == "back_to_user_menu":
+        user = update.effective_user
+        await show_doctor_main_menu(query, user)
+
     elif data.startswith("select_payment_service_"):
         service_id = int(data.split("_")[-1])
         context.user_data["service_id"] = service_id
@@ -339,6 +343,26 @@ async def process_debt_closing(update, context):
     )
     return ConversationHandler.END
 
+async def show_doctor_main_menu(query, user):
+    telegram_id = user.id
+    username = user.username or "yo‘q"
+
+    keyboard = [
+        [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
+
+    text = (
+        f"👋 Salom, {user.full_name}!\n"
+        f"📱 Telegram ID: {telegram_id}\n"
+        f"🧾 Username: @{username}\n\n"
+        f"Siz ro'yhatdan o'tdingiz!"
+        f"📩 Sizga biriktirilgan xizmatlar bo‘yicha bildirishnomalar shu yerga keladi.\n"
+        f"❓ Agar xabar kelsa va buyurtmani olgan bo'lsangiz 'Ha' ni bosing. "
+        f"Agar olmagan bo'lsangiz 14:00 da qayta xabar yuboriladi."
+    )
+
+    await query.edit_message_text(text, reply_markup=markup)
 
 async def process_service_payment(update, context):
     amount = float(update.message.text)

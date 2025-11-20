@@ -152,7 +152,7 @@ async def my_profile(update, context):
     )
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Orqaga", callback_data="go_start")]
+        [InlineKeyboardButton("Orqaga", callback_data="back_to_user_menu")]
     ])
 
     try:
