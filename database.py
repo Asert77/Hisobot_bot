@@ -163,6 +163,27 @@ async def my_profile(update, context):
         else:
             raise
 
+async def show_doctor_main_menu(query, user):
+    telegram_id = user.id
+    username = user.username or "yo‘q"
+
+    keyboard = [
+        [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
+
+    text = (
+        f"👋 Salom, {user.full_name}!\n"
+        f"📱 Telegram ID: {telegram_id}\n"
+        f"🧾 Username: @{username}\n\n"
+        f"Siz ro'yhatdan o'tdingiz!"
+        f"📩 Sizga biriktirilgan xizmatlar bo‘yicha bildirishnomalar shu yerga keladi.\n"
+        f"❓ Agar xabar kelsa va buyurtmani olgan bo'lsangiz 'Ha' ni bosing. "
+        f"Agar olmagan bo'lsangiz 14:00 da qayta xabar yuboriladi."
+    )
+
+    await query.edit_message_text(text, reply_markup=markup)
+
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:
         with conn.cursor() as cur:

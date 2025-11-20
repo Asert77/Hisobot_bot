@@ -11,8 +11,8 @@ from database import (
     create_tables, add_doctor, get_all_doctors, add_service,
     add_payment, get_payments_by_doctor, get_services_by_doctor,
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
- delete_service_by_id, get_monthly_debts,
-    close_debts, add_doctor_auto, my_profile, save_new_doctor_name
+    delete_service_by_id, get_monthly_debts,
+    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, show_doctor_main_menu
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
@@ -342,27 +342,6 @@ async def process_debt_closing(update, context):
         reply_markup=back_button
     )
     return ConversationHandler.END
-
-async def show_doctor_main_menu(query, user):
-    telegram_id = user.id
-    username = user.username or "yo‘q"
-
-    keyboard = [
-        [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")]
-    ]
-    markup = InlineKeyboardMarkup(keyboard)
-
-    text = (
-        f"👋 Salom, {user.full_name}!\n"
-        f"📱 Telegram ID: {telegram_id}\n"
-        f"🧾 Username: @{username}\n\n"
-        f"Siz ro'yhatdan o'tdingiz!"
-        f"📩 Sizga biriktirilgan xizmatlar bo‘yicha bildirishnomalar shu yerga keladi.\n"
-        f"❓ Agar xabar kelsa va buyurtmani olgan bo'lsangiz 'Ha' ni bosing. "
-        f"Agar olmagan bo'lsangiz 14:00 da qayta xabar yuboriladi."
-    )
-
-    await query.edit_message_text(text, reply_markup=markup)
 
 async def process_service_payment(update, context):
     amount = float(update.message.text)
