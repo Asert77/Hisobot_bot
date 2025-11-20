@@ -105,7 +105,6 @@ async def my_profile(update, context):
 
     doctor_id, doctor_name, phone = doctor
 
-    # 💰 To'lovlar va xizmatlar
     payments = get_payments_by_doctor(doctor_id)
     services_summary = get_services_summary_by_doctor(doctor_id)
 
