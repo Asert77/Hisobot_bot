@@ -101,58 +101,66 @@ async def my_profile(update, context):
             doctor = cur.fetchone()
 
     if not doctor:
-        return await query.edit_message_text("❌ Siz ro‘yxatdan o‘tmagansiz. Iltimos, administrator bilan bog‘laning.")
+        return await query.edit_message_text("❌ Siz ro'yxatdan o'tmagansiz. Iltimos, administrator bilan bog'laning.")
 
     doctor_id, doctor_name, phone = doctor
 
-    # 💰 To‘lovlar
+    # 💰 To'lovlar va xizmatlar
     payments = get_payments_by_doctor(doctor_id)
-    services = get_services_by_doctor(doctor_id)
     services_summary = get_services_summary_by_doctor(doctor_id)
 
     total_paid = sum(float(amount) for amount, _ in payments)
     total_expected = get_expected_total_by_doctor(doctor_id)
     debt = max(total_expected - total_paid, 0)
 
-    services_summary = get_services_summary_by_doctor(doctor_id)
-
+    # 🧩 Xizmatlar ro'yxati
     if services_summary:
         service_lines = []
         for service_name, qty, total, created_at in services_summary:
-            if created_at and hasattr(created_at, "strftime"):
-                created_at = created_at.strftime("%Y-%m-%d %H:%M")
-            line = f"{created_at} — {service_name}: {qty} ta, {total:,.0f} so‘m"
+            if created_at:
+                if hasattr(created_at, "astimezone"):
+                    local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+                elif hasattr(created_at, "strftime"):
+                    local_time = created_at.strftime("%Y-%m-%d %H:%M")
+                else:
+                    local_time = str(created_at)
+            else:
+                local_time = "—"
+            line = f"{local_time} — {service_name}: {qty} ta, {total:,.0f} so'm"
             service_lines.append(line)
         services_text = "\n".join(service_lines)
     else:
-        services_text = "Hech qanday xizmat qo‘shilmagan."
+        services_text = "Hech qanday xizmat qo'shilmagan."
 
-    # 💸 To‘lovlar
+    # 💸 To'lovlar ro'yxati
     if payments:
         payment_lines = []
         for amount, created_at in payments:
-            if hasattr(created_at, "astimezone"):
-                local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            if created_at:
+                if hasattr(created_at, "astimezone"):
+                    local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+                else:
+                    local_time = str(created_at)
             else:
-                local_time = str(created_at)
-            payment_lines.append(f"{local_time} — {float(amount):,.0f} so‘m")
+                local_time = "—"
+            payment_lines.append(f"{local_time} — {float(amount):,.0f} so'm")
         payments_text = "\n".join(payment_lines)
     else:
-        payments_text = "Hech qanday to‘lov yo‘q."
+        payments_text = "Hech qanday to'lov yo'q."
 
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
         f"<b>📞 Telefon:</b> {phone or '—'}\n\n"
-        f"<b>💰 To‘langan jami:</b> {total_paid:,.0f} so‘m\n"
-        f"<b>🧾 Umumiy xizmatlar:</b> {total_expected:,.0f} so‘m\n"
-        f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so‘m\n"
+        f"<b>💰 To'langan jami:</b> {total_paid:,.0f} so'm\n"
+        f"<b>🧾 Umumiy xizmatlar:</b> {total_expected:,.0f} so'm\n"
+        f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so'm\n"
         f"<b>🔢 Umumiy xizmatlar soni:</b> {len(services_summary)} ta\n\n"
-        f"<b>🧩 Qo‘shilgan xizmatlar:</b>\n{services_text}\n\n"
-        f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}\n\n"
+        f"<b>🧩 Qo'shilgan xizmatlar:</b>\n{services_text}\n\n"
+        f"<b>🕒 So'nggi to'lovlar:</b>\n{payments_text}"
     )
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Orqaga", callback_data="back_to_user_menu")]
+        [InlineKeyboardButton("🔙 Orqaga", callback_data="back_to_user_menu")]
     ])
 
     try:
