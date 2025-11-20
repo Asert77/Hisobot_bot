@@ -227,21 +227,31 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     doctor_name = doctor[0] if doctor else "Doktor"
 
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{doctor_id}")]
+    ])
+
     await update.message.reply_text(
         f"✅ <b>{doctor_name}</b> uchun telefon raqami muvaffaqiyatli saqlandi!\n\n"
-        f"📞 Telefon: {phone}\n\n"
-        f"Doktor menyusiga qaytish uchun doktorlar ro'yxatidan tanlang.",
-        parse_mode="HTML"
+        f"📞 Telefon: {phone}",
+        parse_mode="HTML",
+        reply_markup=keyboard
     )
-
-    # User data tozalash
     context.user_data.pop("adding_phone_for_doctor", None)
-
     return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Bekor qilindi. Doktorlar ro'yxatiga qaytish uchun menyudan tanlang.")
+    doctor_id = context.user_data.get("adding_phone_for_doctor")
+
+    if doctor_id:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{doctor_id}")]
+        ])
+        await update.message.reply_text("❌ Bekor qilindi.", reply_markup=keyboard)
+    else:
+        await update.message.reply_text("❌ Bekor qilindi.")
+
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -307,7 +317,6 @@ async def save_new_doctor_name(update: Update, context: ContextTypes.DEFAULT_TYP
             cur.execute("UPDATE doctors SET name = %s WHERE id = %s", (new_name, doctor_id))
             conn.commit()
 
-    # 🔙 Orqaga tugmasi
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{doctor_id}")]
     ])
