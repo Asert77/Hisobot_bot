@@ -77,8 +77,11 @@ async def process_report_range(update: Update, context: ContextTypes.DEFAULT_TYP
         f"💵 To‘langan summa: {int(total_payments):,} so‘m\n"
         f"📦 Qarz: {int(total_debt):,} so‘m"
     )
+    back_to_menu = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Asosiy menyu", callback_data="go_start")]
+    ])
 
-    await update.message.reply_text(message)
+    await update.message.reply_text(message,reply_markup=back_to_menu)
     return ConversationHandler.END
 
 
