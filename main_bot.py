@@ -328,15 +328,13 @@ async def process_debt_closing(update, context):
     if not doctor_id:
         await update.message.reply_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
         return ConversationHandler.END
-    # Qarzni - salbiy to‘lov sifatida qo‘shamiz
+
     add_payment(None, -amount, doctor_id)
     await update.message.reply_text(
         f"➕ {amount:.0f} so‘m qarz qo‘shildi doktorga.",
         reply_markup=back_button
     )
     return ConversationHandler.END
-
-
 
 
 async def process_service_payment(update, context):
