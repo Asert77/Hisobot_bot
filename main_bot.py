@@ -12,7 +12,7 @@ from database import (
     add_payment, get_payments_by_doctor, get_services_by_doctor,
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
     delete_service_by_id, get_monthly_debts,
-    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, back_to_user_menu
+    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, back_to_user_menu, add_phone_request, get_phone
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
@@ -361,13 +361,6 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📱 Telefon raqamini yuboring:")
     return PHONE
 
-# 2-qadam: Telefon
-async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    phone = update.message.text.strip()
-
-    if not phone.replace("+", "").isdigit():
-        await update.message.reply_text("❌ Iltimos, faqat raqam kiriting (masalan: +998901234567).")
-        return PHONE
 
     context.user_data["phone"] = phone
     await update.message.reply_text("✏️ Telegram ID yoki username (@username) yuboring:")
@@ -550,11 +543,21 @@ async def main():
         entry_points=[CallbackQueryHandler(handle_menu_selection, pattern="^add_doctor$")],
         states={
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],
             TELEGRAM_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_telegram_id)],  # ✅ BU QATORNI QO‘SH
 
         },
         fallbacks=[CommandHandler("start", start), CommandHandler("cancel", cancel)],
+    )
+
+    # ConversationHandler yaratish
+    phone_conv_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(add_phone_request, pattern="^add_phone_")
+        ],
+        states={
+            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
     )
 
     conv_payment = ConversationHandler(
@@ -618,6 +621,7 @@ async def main():
     app.add_handler(conv_add_service)
     app.add_handler(conv_payment)
     app.add_handler(conv_report)
+    app.add_handler(phone_conv_handler)
     app.add_handler(CallbackQueryHandler(back_to_user_menu, pattern="^back_to_user_menu$"))
     app.add_handler(conv_edit_doctor_name)
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))

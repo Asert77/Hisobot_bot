@@ -6,6 +6,7 @@ import pytz
 from dotenv import load_dotenv
 import os
 from datetime import datetime
+PHONE = 1
 
 
 load_dotenv()  # .env faylni yuklaydi
@@ -170,6 +171,79 @@ async def my_profile(update, context):
         else:
             raise
 
+async def add_phone_request(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    # doctor_id ni callback_data dan olish
+    doctor_id = int(query.data.split("_")[-1])
+    context.user_data["adding_phone_for_doctor"] = doctor_id
+
+    # Doktor nomini olish
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name, phone FROM doctors WHERE id = %s", (doctor_id,))
+            doctor = cur.fetchone()
+
+    if not doctor:
+        await query.edit_message_text("❌ Doktor topilmadi.")
+        return ConversationHandler.END
+
+    doctor_name, current_phone = doctor
+    phone_status = f"Hozirgi telefon: {current_phone}" if current_phone else "Hozircha telefon kiritilmagan."
+
+    await query.edit_message_text(
+        f"📞 <b>{doctor_name}</b> uchun telefon raqamini yuboring:\n\n"
+        f"ℹ️ {phone_status}\n\n"
+        f"Masalan: +998901234567\n\n"
+        f"❌ Bekor qilish uchun /cancel yozing.",
+        parse_mode="HTML"
+    )
+    return PHONE
+
+
+async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    phone = update.message.text.strip()
+
+    if not phone.replace("+", "").replace(" ", "").isdigit():
+        await update.message.reply_text(
+            "❌ Iltimos, faqat raqam kiriting (masalan: +998901234567).\n\nYoki /cancel yozing.")
+        return PHONE
+
+    doctor_id = context.user_data.get("adding_phone_for_doctor")
+
+    if not doctor_id:
+        await update.message.reply_text("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+        return ConversationHandler.END
+
+    # Telefon raqamini yangilash
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE doctors SET phone = %s WHERE id = %s", (phone, doctor_id))
+            conn.commit()
+
+            cur.execute("SELECT name FROM doctors WHERE id = %s", (doctor_id,))
+            doctor = cur.fetchone()
+
+    doctor_name = doctor[0] if doctor else "Doktor"
+
+    await update.message.reply_text(
+        f"✅ <b>{doctor_name}</b> uchun telefon raqami muvaffaqiyatli saqlandi!\n\n"
+        f"📞 Telefon: {phone}\n\n"
+        f"Doktor menyusiga qaytish uchun doktorlar ro'yxatidan tanlang.",
+        parse_mode="HTML"
+    )
+
+    # User data tozalash
+    context.user_data.pop("adding_phone_for_doctor", None)
+
+    return ConversationHandler.END
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("❌ Bekor qilindi. Doktorlar ro'yxatiga qaytish uchun menyudan tanlang.")
+    context.user_data.clear()
+    return ConversationHandler.END
 
 async def back_to_user_menu(update, context):
     query = update.callback_query
