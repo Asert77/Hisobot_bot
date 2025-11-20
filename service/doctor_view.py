@@ -21,9 +21,19 @@ from database import (
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
+
 async def open_doctor_menu(update, context, doctor_id):
     query = update.callback_query
     context.user_data["doctor_id"] = doctor_id
+
+    # Doktor ma'lumotlarini olish (telefon bilan)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name, phone FROM doctors WHERE id = %s", (doctor_id,))
+            doctor_info = cur.fetchone()
+
+    doctor_name = doctor_info[0] if doctor_info else "Noma'lum"
+    doctor_phone = doctor_info[1] if doctor_info and doctor_info[1] else "❌ Kiritilmagan"
 
     services = get_services_summary_by_doctor(doctor_id)
     total_expected = get_expected_total_by_doctor(doctor_id)
@@ -36,33 +46,32 @@ async def open_doctor_menu(update, context, doctor_id):
     for name, price, quantity, *_ in services:
         if quantity == 0 or price == 0:
             continue
-        service_lines.append(f"🔹 {name} — {quantity} ta × {price:.0f} = {price * quantity:.0f} so‘m")
-
+        service_lines.append(f"🔹 {name} — {quantity} ta × {price:.0f} = {price * quantity:.0f} so'm")
     services_text = "\n".join(service_lines) if service_lines else '🚫 Hali xizmat qo‘shilmagan.'
-
     message_text = (
-        f"👨‍⚕️ Doktor uchun ma'lumotlar:\n\n"
+        f"👨‍⚕️ <b>Doktor:</b> {doctor_name}\n"
+        f"📞 <b>Telefon:</b> {doctor_phone}\n\n"
         f"{services_text}\n\n"
-        f"💰 Umumiy: {total_expected:.0f} so‘m\n"
-        f"✅ To‘langan: {total_paid:.0f} so‘m\n"
-        f"❌ Qarzdorlik: {debt:.0f} so‘m"
+        f"💰 Umumiy: {total_expected:.0f} so'm\n"
+        f"✅ To'langan: {total_paid:.0f} so'm\n"
+        f"❌ Qarzdorlik: {debt:.0f} so'm"
     )
-
     keyboard = [
-        [InlineKeyboardButton("➕ Xizmat qo‘shish", callback_data="add_service_to_doctor")],
-        [InlineKeyboardButton("💳 To‘lov qo‘shish", callback_data="add_payment")],
+        [InlineKeyboardButton("➕ Xizmat qo'shish", callback_data="add_service_to_doctor")],
+        [InlineKeyboardButton("💳 To'lov qo'shish", callback_data="add_payment")],
         [InlineKeyboardButton("🧾 Qarzni yopish", callback_data="close_debt")],
-        [InlineKeyboardButton("➕ Qarz qo‘shish", callback_data="add_debt")],
+        [InlineKeyboardButton("➕ Qarz qo'shish", callback_data="add_debt")],
         [InlineKeyboardButton("📊 Hisobot", callback_data=f"report_{doctor_id}")],
-        [InlineKeyboardButton("✏️ Ismni o‘zgartirish", callback_data=f"edit_name_{doctor_id}")],
+        [InlineKeyboardButton("✏️ Ismni o'zgartirish", callback_data=f"edit_name_{doctor_id}")],
+        [InlineKeyboardButton("📞 Telefon qo'shish", callback_data=f"add_phone_{doctor_id}")],  # YANGI
         [InlineKeyboardButton("🔙 Orqaga", callback_data="list_doctors")],
     ]
     markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
-        await update.callback_query.edit_message_text(message_text, reply_markup=markup)
+        await update.callback_query.edit_message_text(message_text, reply_markup=markup, parse_mode="HTML")
     else:
-        await update.message.reply_text(message_text, reply_markup=markup)
+        await update.message.reply_text(message_text, reply_markup=markup, parse_mode="HTML")
 
 async def show_services_for_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

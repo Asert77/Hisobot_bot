@@ -373,7 +373,6 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✏️ Telegram ID yoki username (@username) yuboring:")
     return TELEGRAM_ID
 
-
 async def get_telegram_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_input = update.message.text.strip()
 
