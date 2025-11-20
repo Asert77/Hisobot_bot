@@ -170,26 +170,25 @@ async def my_profile(update, context):
         else:
             raise
 
-async def show_doctor_main_menu(query, user):
+
+async def back_to_user_menu(update, context):
+    query = update.callback_query
+    await query.answer()
+    user = update.effective_user
     telegram_id = user.id
-    username = user.username or "yo‘q"
-
-    keyboard = [
-        [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")]
-    ]
-    markup = InlineKeyboardMarkup(keyboard)
-
-    text = (
-        f"👋 Salom, {user.full_name}!\n"
-        f"📱 Telegram ID: {telegram_id}\n"
-        f"🧾 Username: @{username}\n\n"
-        f"Siz ro'yhatdan o'tdingiz!"
-        f"📩 Sizga biriktirilgan xizmatlar bo‘yicha bildirishnomalar shu yerga keladi.\n"
-        f"❓ Agar xabar kelsa va buyurtmani olgan bo'lsangiz 'Ha' ni bosing. "
-        f"Agar olmagan bo'lsangiz 14:00 da qayta xabar yuboriladi."
-    )
-
-    await query.edit_message_text(text, reply_markup=markup)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name FROM doctors WHERE telegram_id = %s", (telegram_id,))
+            doctor = cur.fetchone()
+    if not doctor:
+        return await query.edit_message_text("❌ Sizda bu menyuga kirish huquqi yo'q.")
+    doctor_name = doctor[0]
+    text = f"👋 Assalomu alaykum, {doctor_name}!\n\n📊 Quyidagi tugmalardan birini tanlang:"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👤 Mening profilim", callback_data="my_profile")],
+    ])
+    await query.edit_message_text(text, reply_markup=keyboard)
+    return None
 
 def add_doctor(name: str, phone: str, telegram_id: int):
     with get_connection() as conn:

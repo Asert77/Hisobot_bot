@@ -12,7 +12,7 @@ from database import (
     add_payment, get_payments_by_doctor, get_services_by_doctor,
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
     delete_service_by_id, get_monthly_debts,
-    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, show_doctor_main_menu
+    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, back_to_user_menu
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
@@ -286,11 +286,6 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         ]
         keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data=f"doctor_{context.user_data['doctor_id']}")])
         await query.edit_message_text("🛠 Qo‘shiladigan xizmatni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif data == "back_to_user_menu":
-        user = update.effective_user
-        await show_doctor_main_menu(query, user)
-        return
 
     elif data.startswith("select_payment_service_"):
         service_id = int(data.split("_")[-1])
@@ -624,6 +619,7 @@ async def main():
     app.add_handler(conv_add_service)
     app.add_handler(conv_payment)
     app.add_handler(conv_report)
+    app.add_handler(CallbackQueryHandler(back_to_user_menu, pattern="^back_to_user_menu$"))
     app.add_handler(conv_edit_doctor_name)
     app.add_handler(CallbackQueryHandler(select_global_service, pattern="^select_global_service_\\d+$"))
     app.add_handler(CallbackQueryHandler(my_profile, pattern="^my_profile$"))
