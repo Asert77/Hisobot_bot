@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
 from datetime import datetime
 from database import get_all_doctors, get_payments_by_doctor, get_services_by_doctor, get_expected_total_by_doctor, \
@@ -77,8 +77,11 @@ async def process_report_range(update: Update, context: ContextTypes.DEFAULT_TYP
         f"💵 To‘langan summa: {int(total_payments):,} so‘m\n"
         f"📦 Qarz: {int(total_debt):,} so‘m"
     )
+    back_to_menu = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Asosiy menyu", callback_data="go_start")]
+    ])
 
-    await update.message.reply_text(message)
+    await update.message.reply_text(message,reply_markup=back_to_menu)
     return ConversationHandler.END
 
 

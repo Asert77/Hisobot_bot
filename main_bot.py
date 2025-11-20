@@ -168,6 +168,9 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
             )
         await query.edit_message_text("✅ Hisobot PDF yuborildi.", reply_markup=back_button)
 
+    elif data == "go_start":
+        await start(update, context)
+
     # ⚙️ Sozlamalar
     elif data == "settings":
         doctors = get_all_doctors()

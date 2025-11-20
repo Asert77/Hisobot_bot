@@ -153,7 +153,7 @@ async def my_profile(update, context):
 
     # 🔙 Orqaga tugmasi
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yangilash", callback_data="my_profile")]
+        [InlineKeyboardButton("Orqaga", callback_data="go_start")]
     ])
 
     try:
