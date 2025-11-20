@@ -74,7 +74,7 @@ async def start_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("doctor_id", None)
 
     await query.edit_message_text(
-        "📆 Sanani kiriting (boshlanish - tugash):\nMasalan: 2025-10-01 - 2025-10-31"
+        "📆 Sanani kiriting (boshlanish - tugash):\nMasalan: “bugun”,\n “7 kun”,\n “01.10.2025 – 31.10.2025”,\n “2025-10-01 2025-10-31” "
     )
     return ASK_REPORT_RANGE
 
