@@ -151,7 +151,6 @@ async def my_profile(update, context):
         f"<b>🕒 So‘nggi to‘lovlar:</b>\n{payments_text}\n\n"
     )
 
-    # 🔙 Orqaga tugmasi
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Orqaga", callback_data="go_start")]
     ])
