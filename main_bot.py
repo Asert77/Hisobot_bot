@@ -274,7 +274,6 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text("💸 Qarz miqdorini kiriting:")
         return ENTER_DEBT_AMOUNT
 
-
     elif data == "add_service_to_doctor":
         services = get_all_services()
         if not services:
@@ -291,6 +290,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "back_to_user_menu":
         user = update.effective_user
         await show_doctor_main_menu(query, user)
+        return
 
     elif data.startswith("select_payment_service_"):
         service_id = int(data.split("_")[-1])
