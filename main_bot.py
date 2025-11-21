@@ -12,7 +12,8 @@ from database import (
     add_payment, get_payments_by_doctor, get_services_by_doctor,
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
     delete_service_by_id, get_monthly_debts,
-    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, back_to_user_menu, add_phone_request, get_phone
+    close_debts, add_doctor_auto, my_profile, save_new_doctor_name, back_to_user_menu, add_phone_request, get_phone,
+    get_connection
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
@@ -326,16 +327,42 @@ async def process_debt_closing(update, context):
     except ValueError:
         await update.message.reply_text("❌ To‘g‘ri raqam kiriting.")
         return ENTER_DEBT_AMOUNT
+
     doctor_id = context.user_data.get("doctor_id")
     if not doctor_id:
         await update.message.reply_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
         return ConversationHandler.END
 
-    add_payment(None, -amount, doctor_id)
+    # 🧾 Agar avval qarz yozilgan bo‘lsa, yangisiga qo‘shamiz
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO pending_debts (doctor_id, amount, created_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (doctor_id)
+                DO UPDATE SET amount = pending_debts.amount + EXCLUDED.amount,
+                              created_at = NOW();
+            """, (doctor_id, amount))
+            conn.commit()
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT telegram_id, name FROM doctors WHERE id = %s", (doctor_id,))
+            doctor = cur.fetchone()
+
+    if doctor:
+        doctor_telegram_id, doctor_name = doctor
+        message_text = f"📩 Hurmatli {doctor_name}, sizga {amount:,.0f} so‘m qarz qo‘shildi."
+        try:
+            await context.bot.send_message(chat_id=doctor_telegram_id, text=message_text)
+        except Exception as e:
+            print(f"⚠️ Doktorga xabar yuborilmadi: {e}")
+
     await update.message.reply_text(
-        f"➕ {amount:.0f} so‘m qarz qo‘shildi doktorga.",
+        f"✅ Doktorga {amount:,.0f} so‘m qarz qo‘shildi.",
         reply_markup=back_button
     )
+
     return ConversationHandler.END
 
 async def process_service_payment(update, context):
