@@ -359,7 +359,7 @@ async def process_debt_closing(update, context):
             print(f"⚠️ Doktorga xabar yuborilmadi: {e}")
 
     await update.message.reply_text(
-        f"✅ Doktorga {amount:,.0f} so‘m qarz qo‘shildi.",
+        f"✅ Doktorga {amount:,.0f} so‘m qarz qo‘shildi. Bu haqida xabar doktorga yuborildi",
         reply_markup=back_button
     )
 
