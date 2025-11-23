@@ -43,18 +43,20 @@ async def open_doctor_menu(update, context, doctor_id):
     debt = max(total_expected - total_paid, 0)
 
     service_lines = []
-    for name, price, quantity, *_ in services:
-        if quantity == 0 or price == 0:
+    for name, quantity, total, *_ in services:
+        if quantity == 0 or total == 0:
             continue
-        service_lines.append(f"🔹 {name} — {quantity} ta × {price:.0f} = {price * quantity:.0f} so'm")
+        service_lines.append(f"🔹 {name} — {quantity} ta = {total:,.0f} so'm")
+
     services_text = "\n".join(service_lines) if service_lines else '🚫 Hali xizmat qo‘shilmagan.'
+
     message_text = (
         f"👨‍⚕️ <b>Doktor:</b> {doctor_name}\n"
         f"📞 <b>Telefon:</b> {doctor_phone}\n\n"
         f"{services_text}\n\n"
-        f"💰 Umumiy: {total_expected:.0f} so'm\n"
-        f"✅ To'langan: {total_paid:.0f} so'm\n"
-        f"❌ Qarzdorlik: {debt:.0f} so'm"
+        f"💰 Umumiy: {total_expected:,.0f} so'm\n"
+        f"✅ To'langan: {total_paid:,.0f} so'm\n"
+        f"❌ Qarzdorlik: {debt:,.0f} so'm"
     )
     keyboard = [
         [InlineKeyboardButton("➕ Xizmat qo'shish", callback_data="add_service_to_doctor")],

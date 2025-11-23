@@ -333,7 +333,6 @@ async def process_debt_closing(update, context):
         await update.message.reply_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
         return ConversationHandler.END
 
-    # 🧾 Agar avval qarz yozilgan bo‘lsa, yangisiga qo‘shamiz
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -359,7 +358,8 @@ async def process_debt_closing(update, context):
             print(f"⚠️ Doktorga xabar yuborilmadi: {e}")
 
     await update.message.reply_text(
-        f"✅ Doktorga {amount:,.0f} so‘m qarz qo‘shildi. Bu haqida xabar doktorga yuborildi",
+        f"✅ Doktorga {amount:,.0f} so‘m qarz qo‘shildi. Bu haqida xabar doktorga"
+        f" yuborildi",
         reply_markup=back_button
     )
 
@@ -387,11 +387,6 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["name"] = update.message.text.strip()
     await update.message.reply_text("📱 Telefon raqamini yuboring:")
     return PHONE
-
-
-    context.user_data["phone"] = phone
-    await update.message.reply_text("✏️ Telegram ID yoki username (@username) yuboring:")
-    return TELEGRAM_ID
 
 async def get_telegram_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_input = update.message.text.strip()
@@ -598,7 +593,7 @@ async def main():
             ENTER_PAYMENT_AMOUNT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, process_service_payment)
             ],
-            ENTER_DEBT_AMOUNT: [  # 👈 BU HAM SHART
+            ENTER_DEBT_AMOUNT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, process_debt_closing)
             ],
         },
