@@ -197,44 +197,61 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "add_service":
         await show_services_for_payment(update, context)
 
+
     elif data == "close_debt":
         doctor_id = context.user_data.get("doctor_id")
         if not doctor_id:
             await query.edit_message_text("❌ Doktor aniqlanmadi.", reply_markup=back_button)
             return ConversationHandler.END
-
-        debts = get_monthly_debts(doctor_id)
-        if not debts:
-            await query.edit_message_text("✅ Ushbu doktorning qarzdorligi yo‘q.", reply_markup=back_button)
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COALESCE(SUM(amount), 0) FROM pending_debts WHERE doctor_id = %s", (doctor_id,))
+                total_debt = float(cur.fetchone()[0] or 0)
+        if total_debt <= 0:
+            await query.edit_message_text("✅ Ushbu doktorning hech qanday qarzi yo‘q.", reply_markup=back_button)
             return ConversationHandler.END
-
-        total_debt = sum(debt for _, debt in debts)
-
-        # 🔽 SHU YERGA BIZGA KERAKLISI:
         keyboard = [
             [
                 InlineKeyboardButton("✅ Ha, qarzni yopaman", callback_data="confirm_close_debt"),
-                InlineKeyboardButton("❌ Yo‘q, bekor qil", callback_data="cancel_close_debt")
+                InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_close_debt")
             ]
         ]
         context.user_data["debt_total"] = total_debt
         await query.edit_message_text(
-            f"🧾 Ushbu doktorning qarzi: <b>{total_debt:.0f} so‘m</b>\n\n"
+            f"🧾 Ushbu doktorning qarzi: <b>{total_debt:,.0f} so‘m</b>\n\n"
             "Qarzni to‘liq yopmoqchimisiz?",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return ConversationHandler.END
 
+
     elif data == "confirm_close_debt":
         doctor_id = context.user_data.get("doctor_id")
-        if not doctor_id:
-            await query.edit_message_text("❌ Doktor aniqlanmadi.")
+        total_debt = context.user_data.get("debt_total", 0)
+        if not doctor_id or total_debt <= 0:
+            await query.edit_message_text("⚠️ Qarzni yopishda xatolik yuz berdi.", reply_markup=back_button)
             return ConversationHandler.END
 
-        # Qarzlarni o‘chirish funksiyasini chaqirish
-        close_debts(doctor_id, context.user_data.get("debt_total", 0))
-        await query.edit_message_text("✅ Qarzdorlik muvaffaqiyatli yopildi.", reply_markup=back_button)
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM pending_debts WHERE doctor_id = %s", (doctor_id,))
+                conn.commit()
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT telegram_id, name FROM doctors WHERE id = %s", (doctor_id,))
+                doctor = cur.fetchone()
+        if doctor:
+            doctor_telegram_id, doctor_name = doctor
+            msg = f"✅ Hurmatli {doctor_name}, sizning {total_debt:,.0f} so‘mlik qarzingiz to‘liq yopildi."
+            try:
+                await context.bot.send_message(chat_id=doctor_telegram_id, text=msg)
+            except Exception as e:
+                print(f"⚠️ Doktorga xabar yuborilmadi: {e}")
+        await query.edit_message_text(
+            f"✅ Doktorning {total_debt:,.0f} so‘mlik qarzi yopildi.",
+            reply_markup=back_button
+        )
         return ConversationHandler.END
 
     elif data == "cancel_close_debt":
@@ -242,7 +259,6 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         return ConversationHandler.END
 
 
-    # 🛠 Xizmatlar bo‘limi
     elif data == "services":
         services = get_all_services()
 

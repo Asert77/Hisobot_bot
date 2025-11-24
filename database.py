@@ -382,13 +382,13 @@ def close_debts(doctor_id, amount):
                 AND created_at >= %s AND created_at < %s
             """, (doctor_id, month_start, next_month))
 
-            # Joriy oydagi to‘lovlarni o‘chirish
             cur.execute("""
                 DELETE FROM payments
                 WHERE doctor_id = %s
                 AND date >= %s AND date < %s
             """, (doctor_id, month_start, next_month))
 
+            cur.execute("DELETE FROM pending_debts WHERE doctor_id = %s", (doctor_id,))
     return [], 0
 
 def get_all_services():
