@@ -13,7 +13,7 @@ from database import (
     delete_doctor, get_all_services, get_service_by_id, get_expected_total_by_doctor, get_services_summary_by_doctor,
     delete_service_by_id, get_monthly_debts,
     close_debts, add_doctor_auto, my_profile, save_new_doctor_name, back_to_user_menu, add_phone_request, get_phone,
-    get_connection
+    get_connection, get_pending_debts
 )
 from pdf_report import generate_pdf_report
 from service.doctor_view import SELECT_SERVICE_QUANTITY, edit_name_, EDIT_DOCTOR_NAME
@@ -157,6 +157,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
         debt = max(total_expected - total_paid + extra_debt, 0)
         services_summary = get_services_summary_by_doctor(doctor_id)
+        pending_debts = get_pending_debts(doctor_id)
 
         filepath = generate_pdf_report(
             doctor_name,
@@ -164,7 +165,8 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
             total_paid,
             total_expected,
             debt,
-            services_summary
+            services_summary,
+            pending_debts
         )
         with open(filepath, "rb") as f:
             await query.message.reply_document(
