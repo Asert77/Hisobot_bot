@@ -82,7 +82,7 @@ def create_tables():
 from telegram.error import BadRequest
 
 
-async def my_profile(update, context):
+async def my_profile(update, context, services_summary):
     query = update.callback_query
     user = update.effective_user
     telegram_id = user.id
@@ -144,6 +144,7 @@ async def my_profile(update, context):
         payments_text = "\n".join(payment_lines)
     else:
         payments_text = "Hech qanday to'lov yo'q."
+    total_service_count = sum(qty for _, qty, *_ in services_summary) if services_summary else 0
 
     text = (
         f"<b>👤 Doktor:</b> {doctor_name}\n"
@@ -151,7 +152,7 @@ async def my_profile(update, context):
         f"<b>💰 To'langan jami:</b> {total_paid:,.0f} so'm\n"
         f"<b>🧾 Umumiy xizmatlar:</b> {total_expected:,.0f} so'm\n"
         f"<b>💸 Qarzdorlik:</b> {debt:,.0f} so'm\n"
-        f"<b>🔢 Umumiy xizmatlar soni:</b> {len(services_summary)} ta\n\n"
+        f"<b>🔢 Umumiy xizmatlar soni:</b> {len(total_service_count)} ta\n\n"
         f"<b>🧩 Qo'shilgan xizmatlar:</b>\n{services_text}\n\n"
         f"<b>🕒 So'nggi to'lovlar:</b>\n{payments_text}"
     )
