@@ -1,16 +1,14 @@
 from xhtml2pdf import pisa
 from io import BytesIO
+import pytz, os
 from datetime import datetime
-import pytz
-import os
 
-
-def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt, services_summary):
+def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt, services_summary, pending_debts=None):
     uzbek_tz = pytz.timezone("Asia/Tashkent")
     now = datetime.now(uzbek_tz).strftime("%Y-%m-%d %H:%M")
 
     # 🔢 Xizmatlar soni
-    total_services_count = sum(row[1] for row in services_summary if len(row) >= 2)
+    total_services_count = sum(qty for _, qty, *_ in services_summary) if services_summary else 0
 
     # 🧾 Xizmatlar jadvali
     services_html = ""
@@ -20,8 +18,10 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
             qty = row[1] if len(row) > 1 else "-"
             total = row[2] if len(row) > 2 else "-"
             created_at = row[3] if len(row) > 3 else None
-            if created_at and hasattr(created_at, "strftime"):
+            if created_at and hasattr(created_at, "astimezone"):
                 created_at = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            elif hasattr(created_at, "strftime"):
+                created_at = created_at.strftime("%Y-%m-%d %H:%M")
             else:
                 created_at = "-"
             services_html += f"""
@@ -52,7 +52,24 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
     else:
         payments_html = "<tr><td colspan='2' style='text-align:center;'>Hech qanday to‘lov yo‘q</td></tr>"
 
-    # 🧩 HTML shablon
+    # 💸 Qarzlar jadvali
+    debts_html = ""
+    if pending_debts:
+        for amount, created_at in pending_debts:
+            if hasattr(created_at, "astimezone"):
+                local_time = created_at.astimezone(uzbek_tz).strftime("%Y-%m-%d %H:%M")
+            else:
+                local_time = str(created_at)
+            debts_html += f"""
+            <tr>
+                <td>{local_time}</td>
+                <td>{amount:,.0f}</td>
+            </tr>
+            """
+    else:
+        debts_html = "<tr><td colspan='2' style='text-align:center;'>Hech qanday qarz yo‘q</td></tr>"
+
+    # 📋 HTML shablon
     html = f"""
     <html>
     <head>
@@ -61,7 +78,6 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
             body {{
                 font-family: DejaVu Sans, sans-serif;
                 font-size: 12pt;
-                color: #000;
             }}
             h1 {{
                 text-align: center;
@@ -97,21 +113,26 @@ def generate_pdf_report(doctor_name, payments, total_paid, total_expected, debt,
         <p><b>Umumiy xizmatlar:</b> {total_expected:,.0f} so‘m</p>
         <p><b>Qarzdorlik:</b> {debt:,.0f} so‘m</p>
         <p><b>Umumiy xizmatlar soni:</b> {total_services_count} ta</p>
+    <div class="section-title">Xizmatlar ro‘yxati</div>
+            <table>
+                <tr><th>Nomi</th><th>Soni</th><th>Jami (so‘m)</th><th>Qo‘shilgan sana</th></tr>
+                {services_html}
+            </table>
 
-        <div class="section-title">Xizmatlar ro‘yxati</div>
-        <table>
-            <tr><th>Nomi</th><th>Soni</th><th>Jami (so‘m)</th><th>Sana</th></tr>
-            {services_html}
-        </table>
+            <div class="section-title">To‘lovlar tarixi</div>
+            <table>
+                <tr><th>Sana</th><th>Summa (so‘m)</th></tr>
+                {payments_html}
+            </table>
 
-        <div class="section-title">To‘lovlar tarixi</div>
-        <table>
-            <tr><th>Sana</th><th>Summa (so‘m)</th></tr>
-            {payments_html}
-        </table>
-    </body>
-    </html>
-    """
+            <div class="section-title">Qarzlar tarixi</div>
+            <table>
+                <tr><th>Sana</th><th>Summa (so‘m)</th></tr>
+                {debts_html}
+            </table>
+        </body>
+        </html>
+        """
 
     filename = f"doctor_report_{doctor_name.replace(' ', '_')}.pdf"
     output_path = os.path.join("/app", filename)

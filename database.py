@@ -719,3 +719,14 @@ def get_doctor_by_telegram(telegram_id):
                 return {"id": row[0], "name": row[1]}
             return None
 
+def get_pending_debts(doctor_id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT amount, created_at
+                FROM pending_debts
+                WHERE doctor_id = %s
+                ORDER BY created_at DESC
+            """, (doctor_id,))
+            rows = cur.fetchall()
+    return [(float(amount), created_at) for amount, created_at in rows]
