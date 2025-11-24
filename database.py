@@ -1,15 +1,14 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import psycopg2
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, ConversationHandler
 import pytz
 from dotenv import load_dotenv
 import os
-from datetime import datetime
 PHONE = 1
 
 
-load_dotenv()  # .env faylni yuklaydi
+load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 DB_NAME = os.getenv("DB_NAME")
@@ -29,12 +28,10 @@ def get_connection():
         port=DB_PORT
     )
 
-# 📌 Jadval yaratish
 def create_tables():
     conn = get_connection()
     cur = conn.cursor()
 
-    # 🩺 Doktorlar
     cur.execute("""
         CREATE TABLE IF NOT EXISTS doctors (
             id SERIAL PRIMARY KEY,
@@ -43,7 +40,6 @@ def create_tables():
         );
     """)
 
-    # 🛠 Umumiy xizmatlar
     cur.execute("""
         CREATE TABLE IF NOT EXISTS services (
             id SERIAL PRIMARY KEY,
@@ -52,7 +48,6 @@ def create_tables():
         );
     """)
 
-    # 📦 Doktorning tanlagan xizmatlari (bu endi alohida)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS doctor_services (
             id SERIAL PRIMARY KEY,
@@ -70,7 +65,6 @@ def create_tables():
         );
     """)
 
-    # 💰 To‘lovlar
     cur.execute("""
         CREATE TABLE IF NOT EXISTS payments (
             id SERIAL PRIMARY KEY,
@@ -95,7 +89,6 @@ async def my_profile(update, context):
 
     uzbek_tz = pytz.timezone("Asia/Tashkent")
 
-    # 🩺 Doktor ma'lumotlarini olish
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id, name, phone FROM doctors WHERE telegram_id = %s", (telegram_id,))
@@ -111,9 +104,14 @@ async def my_profile(update, context):
 
     total_paid = sum(float(amount) for amount, _ in payments)
     total_expected = get_expected_total_by_doctor(doctor_id)
-    debt = max(total_expected - total_paid, 0)
 
-    # 🧩 Xizmatlar ro'yxati
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COALESCE(SUM(amount), 0) FROM pending_debts WHERE doctor_id = %s", (doctor_id,))
+            extra_debt = float(cur.fetchone()[0] or 0)
+
+    debt = max(total_expected - total_paid + extra_debt, 0)
+
     if services_summary:
         service_lines = []
         for service_name, qty, total, created_at in services_summary:
@@ -132,7 +130,6 @@ async def my_profile(update, context):
     else:
         services_text = "Hech qanday xizmat qo'shilmagan."
 
-    # 💸 To'lovlar ro'yxati
     if payments:
         payment_lines = []
         for amount, created_at in payments:
@@ -291,12 +288,10 @@ def doctor_exists_by_telegram(telegram_id):
 def add_doctor_auto(telegram_id, full_name, username):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Avval tekshiramiz: doktor mavjudmi
             cur.execute("SELECT id FROM doctors WHERE telegram_id = %s", (telegram_id,))
             if cur.fetchone():
-                return  # allaqachon mavjud, hech narsa qilmaymiz
+                return
 
-            # Agar mavjud bo‘lmasa, qo‘shamiz
             cur.execute("""
                 INSERT INTO doctors (name, telegram_id, username)
                 VALUES (%s, %s, %s)
@@ -311,7 +306,6 @@ async def save_new_doctor_name(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("⚠️ Noma'lum xatolik yuz berdi.")
         return ConversationHandler.END
 
-    # 🛠 Bazada yangilash
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE doctors SET name = %s WHERE id = %s", (new_name, doctor_id))
@@ -326,9 +320,7 @@ async def save_new_doctor_name(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=keyboard
     )
 
-    # 🧹 Contextni tozalash
     context.user_data.pop("edit_doctor_id", None)
-
     return ConversationHandler.END
 
 
@@ -338,13 +330,11 @@ def get_all_doctors():
             cur.execute("SELECT id, name, phone FROM doctors")
             return cur.fetchall()
 
-# ❌ Doktorni o‘chirish
 def delete_doctor(doctor_id: int):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM doctors WHERE id = %s", (doctor_id,))
 
-# ➕ Xizmat (umumiy bazaga)
 def add_service(doctor_id, name, price, created_at=None):
     conn = get_connection()
     cur = conn.cursor()
@@ -379,11 +369,6 @@ def delete_payments_by_month(doctor_id, month_date):
 
 
 def close_debts(doctor_id, amount):
-    """
-    Foydalanuvchi 'qarzni yopish' tugmasini bosganda ishlatiladi.
-    Joriy oydagi barcha xizmatlar va to‘lovlar o‘chiriladi.
-    Qoldiq boshqa oylarga o'tkazilmaydi.
-    """
     now = datetime.now()
     month_start = now.replace(day=1)
     next_month = (month_start + timedelta(days=32)).replace(day=1)
@@ -404,7 +389,7 @@ def close_debts(doctor_id, amount):
                 AND date >= %s AND date < %s
             """, (doctor_id, month_start, next_month))
 
-    return [], 0  # qaytarilishi shart bo‘lgan struktura
+    return [], 0
 
 def get_all_services():
     with get_connection() as conn:
@@ -457,7 +442,7 @@ def get_services_by_doctor(doctor_id):
             quantity = int(row[2])
             created_at = row[3]
 
-            # ✅ Sana to‘g‘rilash
+            # Sana to‘g‘rilash
             if created_at is None:
                 created_at = datetime.now(uzbek_tz)
             elif not hasattr(created_at, "astimezone"):
@@ -504,7 +489,6 @@ def get_expected_total_by_doctor(doctor_id: int, start_date=None, end_date=None)
                 """, (doctor_id,))
             return float(cur.fetchone()[0])
 
-import logging
 
 def get_service_by_id(service_id):
     with get_connection() as conn:

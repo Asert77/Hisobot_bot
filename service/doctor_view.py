@@ -26,7 +26,7 @@ async def open_doctor_menu(update, context, doctor_id):
     query = update.callback_query
     context.user_data["doctor_id"] = doctor_id
 
-    # Doktor ma'lumotlarini olish (telefon bilan)
+    # 🩺 Doktor ma'lumotlarini olish
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT name, phone FROM doctors WHERE id = %s", (doctor_id,))
@@ -35,13 +35,22 @@ async def open_doctor_menu(update, context, doctor_id):
     doctor_name = doctor_info[0] if doctor_info else "Noma'lum"
     doctor_phone = doctor_info[1] if doctor_info and doctor_info[1] else "❌ Kiritilmagan"
 
+    # 🧾 Xizmatlar, to‘lovlar, qarz
     services = get_services_summary_by_doctor(doctor_id)
     total_expected = get_expected_total_by_doctor(doctor_id)
     payments = get_payments_by_doctor(doctor_id)
     total_paid = sum(float(amount) for amount, _ in payments)
 
-    debt = max(total_expected - total_paid, 0)
+    # 🧮 Bazadagi qo‘shimcha qarzlarni olish
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COALESCE(SUM(amount), 0) FROM pending_debts WHERE doctor_id = %s", (doctor_id,))
+            extra_debt = float(cur.fetchone()[0] or 0)
 
+    # 🔹 Umumiy qarzdorlikni hisoblash
+    debt = max(total_expected - total_paid + extra_debt, 0)
+
+    # 🧱 Xizmatlar matni
     service_lines = []
     for name, quantity, total, *_ in services:
         if quantity == 0 or total == 0:
@@ -50,6 +59,7 @@ async def open_doctor_menu(update, context, doctor_id):
 
     services_text = "\n".join(service_lines) if service_lines else '🚫 Hali xizmat qo‘shilmagan.'
 
+    # 📋 Yakuniy xabar
     message_text = (
         f"👨‍⚕️ <b>Doktor:</b> {doctor_name}\n"
         f"📞 <b>Telefon:</b> {doctor_phone}\n\n"
@@ -58,6 +68,7 @@ async def open_doctor_menu(update, context, doctor_id):
         f"✅ To'langan: {total_paid:,.0f} so'm\n"
         f"❌ Qarzdorlik: {debt:,.0f} so'm"
     )
+
     keyboard = [
         [InlineKeyboardButton("➕ Xizmat qo'shish", callback_data="add_service_to_doctor")],
         [InlineKeyboardButton("💳 To'lov qo'shish", callback_data="add_payment")],
@@ -65,13 +76,14 @@ async def open_doctor_menu(update, context, doctor_id):
         [InlineKeyboardButton("➕ Qarz qo'shish", callback_data="add_debt")],
         [InlineKeyboardButton("📊 Hisobot", callback_data=f"report_{doctor_id}")],
         [InlineKeyboardButton("✏️ Ismni o'zgartirish", callback_data=f"edit_name_{doctor_id}")],
-        [InlineKeyboardButton("📞 Telefon qo'shish", callback_data=f"add_phone_{doctor_id}")],  # YANGI
+        [InlineKeyboardButton("📞 Telefon qo'shish", callback_data=f"add_phone_{doctor_id}")],
         [InlineKeyboardButton("🔙 Orqaga", callback_data="list_doctors")],
     ]
     markup = InlineKeyboardMarkup(keyboard)
 
+    # 🔄 Xabarni yangilash
     if update.callback_query:
-        await update.callback_query.edit_message_text(message_text, reply_markup=markup, parse_mode="HTML")
+        await query.edit_message_text(message_text, reply_markup=markup, parse_mode="HTML")
     else:
         await update.message.reply_text(message_text, reply_markup=markup, parse_mode="HTML")
 

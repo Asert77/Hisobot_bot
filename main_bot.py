@@ -124,6 +124,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
     elif data == "report_main":
         return await start_report(update, context)
+
     elif data == "my_profile":
         await my_profile(update, context)
 
@@ -148,11 +149,15 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         services = get_services_by_doctor(doctor_id)
         total_paid = sum(float(amount) for amount, _ in payments)
         total_expected = get_expected_total_by_doctor(doctor_id)
-        debt = total_expected - total_paid
 
-        # Qo‘shilgan xizmatlar
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COALESCE(SUM(amount), 0) FROM pending_debts WHERE doctor_id = %s", (doctor_id,))
+                extra_debt = float(cur.fetchone()[0] or 0)
+
+        debt = max(total_expected - total_paid + extra_debt, 0)
         services_summary = get_services_summary_by_doctor(doctor_id)
-        # PDF hisobot yaratish
+
         filepath = generate_pdf_report(
             doctor_name,
             payments,
@@ -167,6 +172,7 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
                 filename=os.path.basename(filepath),
                 caption="📎 Hisobot PDF fayli"
             )
+
         await query.edit_message_text("✅ Hisobot PDF yuborildi.", reply_markup=back_button)
 
     elif data == "go_start":
